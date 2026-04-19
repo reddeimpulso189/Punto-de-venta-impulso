@@ -1,0 +1,767 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0,maximum-scale=1.0,user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="PV Impulso"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#080812"/>
+<title>Punto de Venta Impulso</title>
+
+<!-- ══════════════════════════════════════════════════════════
+     ÍCONOS PARA INSTALAR COMO APP (PWA)
+     El ícono se genera con SVG inline convertido a data URL
+════════════════════════════════════════════════════════════ -->
+<link rel="manifest" href="data:application/json;base64,eyJuYW1lIjoiUHVudG8gZGUgVmVudGEgSW1wdWxzbyIsInNob3J0X25hbWUiOiJQViBJbXB1bHNvIiwic3RhcnRfdXJsIjoiLyIsImRpc3BsYXkiOiJzdGFuZGFsb25lIiwiYmFja2dyb3VuZF9jb2xvciI6IiMwODA4MTIiLCJ0aGVtZV9jb2xvciI6IiMwMGU1YTAiLCJvcmllbnRhdGlvbiI6InBvcnRyYWl0IiwiaWNvbnMiOlt7InNyYyI6ImRhdGE6aW1hZ2Uvc3ZnK3htbDtiYXNlNjQsUEhOMlp5QjRiV3h1Y3owaWFIUjBjRG92TDNkM2R5NTNNeTV2Y21jdk1qQXdNQzl6ZG1jaUlIZHBaSFJvUFNJeE1EQWlJR2hsYVdkb2REMGlNVEF3SWlCNGJXeHVjenBoUFNKamIyeHZjam9vSXpBd1pUVmhNREVtTVRZd01HTW1NVFl3TW1Nd1lEZ3lNbU1tTVRZd01qUTBZaTBtS1MwbUpUa3dMakU1WldZd0xqRTVZaVlsTVRZd0lDMHhKVFF5TXpVbU1UWTJMamMxWW1ZbU9UQTBNQ1VsTUNVbU1TY2lJR1pwYkd3OUltWnZiblF0YzJsNlpTSWdabWxzYkQwaWIzWm5MWEJ5WlhObGNuWmxJajQ4ZEdWNGRDQmpkSGt5TFRJOUluTjBjbTlyWlNJK1BIUmxlSFF2UGt0VlFTOVVaWE4wSUR3dmRHVjRkRDQ4ZEdWNGRDQm1kVzVqZEdsdmJqMHhOQ0lnY0hKdmFHOXdQU0loZG1GdVlYSXRZakE1SW1JaUlISmxkRzlqYjJ3dFpHOXlQU0l3SWlCalpYSnRiM1E5SW00MklpQjBhR1Z1UHNPK1BIUmxlSFF2UGpVd0lpQnphR0Z5WVQwaUp6TWlJSFI1Y0dVOUluVnVhV1p2YVc0aUlHbHVaSFZtYVc1blBTSk9ZV3hrSUZKeWIzZGxaQ0lnYm1WMGQyOXlhMlZ5UFNKeWIzZGxaQ0krUW1Wc1lTOGk0cGErUGk4dmRHVjRkRDQ4TDNOMlp6ND0iLCJzaXplcyI6ImFueSIsInR5cGUiOiJpbWFnZS9zdmcreG1sIiwicHVycG9zZSI6ImFueSBtYXNrYWJsZSJ9XX0="/>
+
+<!-- Apple touch icon -->
+<link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAxMDAgMTAwIj48ZGVmcz48bGluZWFyR3JhZGllbnQgaWQ9ImciIHgxPSIwJSIgeTE9IjAlIiB4Mj0iMTAwJSIgeTI9IjEwMCUiPjxzdG9wIG9mZnNldD0iMCUiIHN0b3AtY29sb3I9IiMwMGU1YTAiLz48c3RvcCBvZmZzZXQ9IjEwMCUiIHN0b3AtY29sb3I9IiMwMGI0ZDgiLz48L2xpbmVhckdyYWRpZW50PjwvZGVmcz48cmVjdCB3aWR0aD0iMTAwIiBoZWlnaHQ9IjEwMCIgcng9IjIyIiBmaWxsPSJ1cmwoI2cpIi8+PHRleHQgeD0iNTAiIHk9IjY4IiBmb250LXNpemU9IjUyIiB0ZXh0LWFuY2hvcj0ibWlkZGxlIj7wn4mrPC90ZXh0Pjwvc3ZnPg=="/>
+
+<!-- Service Worker para funcionar offline -->
+<script>
+if('serviceWorker' in navigator){
+  const sw=`
+self.addEventListener('install',e=>self.skipWaiting());
+self.addEventListener('activate',e=>e.waitUntil(clients.claim()));
+self.addEventListener('fetch',e=>{
+  if(e.request.url.includes('firebasejs')||e.request.url.includes('googleapis')){return;}
+  e.respondWith(caches.open('pvi-v1').then(c=>c.match(e.request).then(r=>r||fetch(e.request))));
+});`;
+  const blob=new Blob([sw],{type:'application/javascript'});
+  const url=URL.createObjectURL(blob);
+  navigator.serviceWorker.register(url).catch(()=>{});
+}
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&family=DM+Mono&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:#080812;color:#fff;min-height:100vh;-webkit-tap-highlight-color:transparent;}
+input,button,select{font-family:'DM Sans',sans-serif;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:4px;}
+@keyframes scan{0%,100%{top:15%}50%{top:80%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;">
+    <div style="width:40px;height:40px;border:3px solid rgba(0,229,160,0.2);border-top-color:#00e5a0;border-radius:50%;animation:spin 1s linear infinite;"></div>
+    <div style="color:#444;font-size:13px;">Cargando...</div>
+  </div>
+</div>
+
+<!-- ══ FIREBASE SDK ════════════════════════════════════════ -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<script>
+// ════════════════════════════════════════════════════════════
+// 🔧 CONFIGURACIÓN — CAMBIA ESTOS DATOS POR LOS DE TU CLIENTE
+//    Firebase Console → ⚙️ Configuración → Tus apps → Web
+// ════════════════════════════════════════════════════════════
+const FIREBASE_CONFIG = {
+  apiKey:            "PEGA-API-KEY-AQUI",
+  authDomain:        "PEGA-PROJECT-ID.firebaseapp.com",
+  databaseURL:       "https://PEGA-PROJECT-ID-default-rtdb.firebaseio.com",
+  projectId:         "PEGA-PROJECT-ID",
+  storageBucket:     "PEGA-PROJECT-ID.appspot.com",
+  messagingSenderId: "PEGA-SENDER-ID",
+  appId:             "PEGA-APP-ID"
+};
+const STORE_NAME = "Abarrotes García";  // ← Nombre del negocio
+const OWNER_NAME = "Carlos García";     // ← Nombre del dueño
+// ════════════════════════════════════════════════════════════
+
+firebase.initializeApp(FIREBASE_CONFIG);
+const auth = firebase.auth();
+const db   = firebase.database();
+
+// ── Utilidades ────────────────────────────────────────────
+const fmt      = n => '$' + Number(n).toFixed(2);
+const todayStr = () => new Date().toISOString().split('T')[0];
+const el       = id => document.getElementById(id);
+
+const PAYMENTS = [
+  {id:'cash',     label:'Efectivo',      icon:'💵'},
+  {id:'card',     label:'Tarjeta',       icon:'💳'},
+  {id:'transfer', label:'Transferencia', icon:'📲'},
+];
+
+const BASE_PRODS = [
+  {barcode:'7501055300847',name:'Leche Lala 1L',        cat:'Lácteos',   cost:18,price:24,stock:48,min:10},
+  {barcode:'7501055361480',name:'Leche Alpura 1L',       cat:'Lácteos',   cost:17,price:23,stock:36,min:10},
+  {barcode:'7501003127061',name:'Coca-Cola 600ml',       cat:'Refrescos', cost:14,price:20,stock:72,min:24},
+  {barcode:'7501003127078',name:'Pepsi 600ml',           cat:'Refrescos', cost:13,price:18,stock:60,min:24},
+  {barcode:'7501003135028',name:'Sprite 600ml',          cat:'Refrescos', cost:13,price:18,stock:48,min:12},
+  {barcode:'7501000613101',name:'Sabritas Original 45g', cat:'Botanas',   cost:12,price:18,stock:40,min:15},
+  {barcode:'7501000613118',name:'Ruffles 45g',           cat:'Botanas',   cost:12,price:18,stock:35,min:15},
+  {barcode:'7501000614030',name:'Cheetos 45g',           cat:'Botanas',   cost:11,price:17,stock:38,min:15},
+  {barcode:'7501000913109',name:'Pan Bimbo Blanco',      cat:'Panadería', cost:38,price:52,stock:20,min:8},
+  {barcode:'7501000913116',name:'Pan Bimbo Integral',    cat:'Panadería', cost:40,price:55,stock:15,min:8},
+  {barcode:'7501007610126',name:'Huevo Blanco 12pz',     cat:'Básicos',   cost:42,price:58,stock:30,min:10},
+  {barcode:'7501007610140',name:'Huevo Rojo 12pz',       cat:'Básicos',   cost:44,price:60,stock:25,min:10},
+  {barcode:'7501031310717',name:'Arroz Morelos 1kg',     cat:'Básicos',   cost:22,price:30,stock:50,min:20},
+  {barcode:'7500478001519',name:'Frijol Isadora 560g',   cat:'Básicos',   cost:25,price:35,stock:40,min:15},
+  {barcode:'7501234567890',name:'Azúcar Estándar 1kg',   cat:'Básicos',   cost:24,price:32,stock:55,min:20},
+  {barcode:'7501234567891',name:'Aceite Nutrioli 1L',    cat:'Básicos',   cost:58,price:78,stock:22,min:8},
+  {barcode:'7501070410204',name:'Jabón Zote 400g',       cat:'Limpieza',  cost:18,price:26,stock:30,min:10},
+  {barcode:'7501070411645',name:'Jabón Roma 500g',       cat:'Limpieza',  cost:15,price:22,stock:28,min:10},
+  {barcode:'7501346116019',name:'Detergente Ariel 500g', cat:'Limpieza',  cost:45,price:62,stock:18,min:8},
+  {barcode:'7501346111205',name:'Fabuloso 1L',           cat:'Limpieza',  cost:28,price:40,stock:24,min:8},
+  {barcode:'7500615101002',name:'Agua Ciel 1.5L',        cat:'Agua',      cost:10,price:15,stock:96,min:30},
+  {barcode:'7500615105000',name:'Agua Ciel 500ml',       cat:'Agua',      cost:7, price:12,stock:120,min:36},
+  {barcode:'7501055305125',name:'Yogurt Yoplait 150g',   cat:'Lácteos',   cost:12,price:18,stock:30,min:10},
+  {barcode:'7501003186029',name:'Jumex Mango 335ml',     cat:'Jugos',     cost:10,price:15,stock:48,min:18},
+  {barcode:'7501003186036',name:'Jumex Naranja 335ml',   cat:'Jugos',     cost:10,price:15,stock:42,min:18},
+  {barcode:'7501000618006',name:'Galletas Marías 200g',  cat:'Galletas',  cost:16,price:24,stock:35,min:12},
+  {barcode:'7501000619003',name:'Galletas Oreo 120g',    cat:'Galletas',  cost:20,price:29,stock:30,min:12},
+  {barcode:'7501234500001',name:'Café Nescafé 100g',     cat:'Bebidas',   cost:55,price:75,stock:20,min:8},
+  {barcode:'7501234500002',name:'Chocolate Abuelita',    cat:'Bebidas',   cost:62,price:85,stock:15,min:6},
+  {barcode:'7501451001021',name:'Queso Manchego 400g',   cat:'Lácteos',   cost:68,price:90,stock:12,min:4},
+];
+
+// ── Firebase DB helpers ───────────────────────────────────
+const prodsRef = () => db.ref('products');
+const salesRef = () => db.ref('sales');
+
+// ── Estado global ─────────────────────────────────────────
+let S = {
+  user:null, cashier:'Caja 1', dark:true, tab:'sell',
+  prods:[], sales:[], cart:[], payMethod:'cash', paid:'',
+  bcInput:'', searchQ:'', period:'day', loading:false,
+  scanner:false, scanForAdd:false, addModal:false,
+  receipt:null, cancelModal:null, whatsModal:null, whatsNum:'',
+  notif:null, notifTimer:null,
+  newP:{barcode:'',name:'',cat:'',cost:'',price:'',stock:'',min:'5'},
+  installPrompt:null, showInstall:false,
+};
+
+// ── Notificaciones ────────────────────────────────────────
+function notify(msg,type='ok'){
+  if(S.notifTimer) clearTimeout(S.notifTimer);
+  S.notif={msg,type};
+  S.notifTimer=setTimeout(()=>{S.notif=null;render();},2800);
+  render();
+}
+
+// ── PWA Install prompt ────────────────────────────────────
+window.addEventListener('beforeinstallprompt',e=>{
+  e.preventDefault();
+  S.installPrompt=e;
+  S.showInstall=true;
+  render();
+});
+
+window.addEventListener('appinstalled',()=>{
+  S.showInstall=false;
+  S.installPrompt=null;
+  notify('✅ App instalada correctamente');
+});
+
+async function installApp(){
+  if(!S.installPrompt) return;
+  S.installPrompt.prompt();
+  const r = await S.installPrompt.userChoice;
+  if(r.outcome==='accepted'){S.showInstall=false;S.installPrompt=null;}
+  render();
+}
+
+// ── Auth ──────────────────────────────────────────────────
+firebase.auth().onAuthStateChanged(async user=>{
+  if(user){
+    S.user=user; S.loading=true; render();
+    const ps=await prodsRef().get();
+    if(ps.exists()) S.prods=Object.values(ps.val());
+    else{ const b={};BASE_PRODS.forEach(p=>b[p.barcode]=p);await prodsRef().set(b);S.prods=[...BASE_PRODS]; }
+    const ss=await salesRef().get();
+    S.sales=ss.exists()?Object.values(ss.val()):[];
+    prodsRef().on('value',snap=>{if(snap.exists()){S.prods=Object.values(snap.val());render();}});
+    salesRef().on('value',snap=>{S.sales=snap.exists()?Object.values(snap.val()):[];render();});
+    S.loading=false;
+  } else {
+    S.user=null;
+    prodsRef().off(); salesRef().off();
+  }
+  render();
+});
+
+async function doLogin(email,pass,cashier){
+  try{ await firebase.auth().signInWithEmailAndPassword(email,pass); S.cashier=cashier||'Caja 1'; }
+  catch(e){ notify('Correo o contraseña incorrectos','err'); }
+}
+
+async function doLogout(){
+  await firebase.auth().signOut();
+  S.tab='sell';S.cart=[];render();
+}
+
+// ── Carrito ───────────────────────────────────────────────
+function cartTotal()  { return S.cart.reduce((t,c)=>t+c.price*c.qty,0); }
+function cartProfit() { return S.cart.reduce((t,c)=>t+(c.price-c.cost)*c.qty,0); }
+function cartChange() { return S.paid?Math.max(0,parseFloat(S.paid)-cartTotal()):0; }
+
+function addByBarcode(code){
+  const p=S.prods.find(p=>p.barcode===code.trim());
+  if(!p){notify('No encontrado: '+code,'err');return;}
+  if(p.stock<=0){notify('Sin stock: '+p.name,'err');return;}
+  const ex=S.cart.find(c=>c.barcode===p.barcode);
+  if(ex){ if(ex.qty>=p.stock){notify('Sin suficiente existencia','err');return;}
+    S.cart=S.cart.map(c=>c.barcode===p.barcode?{...c,qty:c.qty+1}:c);
+  } else S.cart=[...S.cart,{...p,qty:1}];
+  notify('✓ '+p.name);
+}
+
+async function finalizeSale(){
+  if(!S.cart.length)return;
+  const total=cartTotal(),profit=cartProfit();
+  const sale={
+    id:'s'+Date.now(),date:todayStr(),timestamp:Date.now(),
+    items:[...S.cart],total,profit,
+    paid:parseFloat(S.paid)||total,change:cartChange(),
+    payMethod:S.payMethod,cashierName:S.cashier,
+    cancelled:false,cancelledBy:null,cancelReason:null,
+  };
+  await salesRef().child(sale.id).set(sale);
+  const upd={};
+  S.prods.forEach(p=>{const it=S.cart.find(c=>c.barcode===p.barcode);if(it)upd[p.barcode]={...p,stock:p.stock-it.qty};});
+  await prodsRef().update(upd);
+  S.cart=[];S.paid='';S.payMethod='cash';S.receipt=sale;render();
+}
+
+async function cancelSale(sale,reason){
+  const upd={};
+  S.prods.forEach(p=>{const it=sale.items.find(i=>i.barcode===p.barcode);if(it)upd[p.barcode]={...p,stock:p.stock+it.qty};});
+  await prodsRef().update(upd);
+  await salesRef().child(sale.id).set({...sale,cancelled:true,cancelledBy:S.cashier,cancelReason:reason,cancelledAt:Date.now()});
+  S.cancelModal=null;notify('⛔ Venta cancelada — stock restaurado');
+}
+
+// ── PDF ───────────────────────────────────────────────────
+function printReport(sales,label,period){
+  const active=sales.filter(s=>!s.cancelled);
+  const total=active.reduce((s,v)=>s+v.total,0);
+  const profit=active.reduce((s,v)=>s+v.profit,0);
+  const byM={cash:0,card:0,transfer:0};
+  active.forEach(s=>{byM[s.payMethod]=(byM[s.payMethod]||0)+s.total;});
+  const rows=sales.map(s=>`<tr style="${s.cancelled?'background:#fff5f5;text-decoration:line-through;color:#bbb':''}">
+    <td>${new Date(s.timestamp).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${s.cashierName||'Caja 1'}</td>
+    <td style="font-size:10px">${s.items.map(i=>`${i.name}×${i.qty}`).join(', ')}</td>
+    <td>${{cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia'}[s.payMethod]||'—'}</td>
+    <td style="text-align:right">$${s.total.toFixed(2)}</td>
+    <td style="text-align:right;color:${s.cancelled?'#ccc':'#007744'}">$${s.profit.toFixed(2)}</td>
+    <td style="text-align:center">${s.cancelled?'<span style="color:#c00;font-weight:700">CANCELADA</span>':'✓'}</td>
+  </tr>`).join('');
+  const w=window.open('','_blank','width=980,height=720');
+  if(!w)return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${STORE_NAME} — ${label}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;max-width:960px;margin:0 auto;}
+  h1{font-size:20px;margin-bottom:4px;}h2{color:#666;font-size:13px;margin:0 0 18px;}
+  .g{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .b{border:1px solid #e0e0e0;border-radius:8px;padding:10px 16px;flex:1;text-align:center;min-width:100px;}
+  .b span{font-size:10px;color:#888;display:block;}.b b{font-size:20px;display:block;margin-top:3px;}
+  .gr b{color:#007744;}.bl b{color:#0055cc;}.rd b{color:#cc0000;}
+  table{width:100%;border-collapse:collapse;}
+  th{background:#f5f5f5;padding:7px 8px;text-align:left;border-bottom:2px solid #ddd;font-size:11px;}
+  td{padding:5px 8px;border-bottom:1px solid #eee;vertical-align:top;}
+  .ft{margin-top:18px;font-size:10px;color:#aaa;text-align:center;border-top:1px solid #eee;padding-top:10px;}
+  @media print{body{padding:0;}}</style></head><body>
+  <h1>📊 Reporte de Ventas — ${label}</h1>
+  <h2>${STORE_NAME} · ${OWNER_NAME} · ${period}</h2>
+  <div class="g">
+    <div class="b"><span>Transacciones</span><b>${active.length}</b></div>
+    <div class="b bl"><span>Ingresos netos</span><b>$${total.toFixed(2)}</b></div>
+    <div class="b gr"><span>Ganancia neta</span><b>$${profit.toFixed(2)}</b></div>
+    <div class="b rd"><span>Canceladas</span><b>${sales.filter(s=>s.cancelled).length}</b></div>
+  </div>
+  <div class="g">
+    <div class="b"><span>💵 Efectivo</span><b>$${(byM.cash||0).toFixed(2)}</b></div>
+    <div class="b"><span>💳 Tarjeta</span><b>$${(byM.card||0).toFixed(2)}</b></div>
+    <div class="b"><span>📲 Transferencia</span><b>$${(byM.transfer||0).toFixed(2)}</b></div>
+  </div>
+  <table><thead><tr><th>Fecha/Hora</th><th>Caja</th><th>Productos</th><th>Pago</th><th>Total</th><th>Ganancia</th><th>Estado</th></tr></thead>
+  <tbody>${rows||'<tr><td colspan="7" style="text-align:center;color:#aaa;padding:20px">Sin ventas</td></tr>'}</tbody></table>
+  <div class="ft">Generado por Punto de Venta Impulso · ${new Date().toLocaleString('es-MX')}</div>
+  </body></html>`);
+  w.document.close();setTimeout(()=>w.print(),500);
+}
+
+// ── Filtro periodo ────────────────────────────────────────
+function filterPeriod(sales,period){
+  const now=new Date();
+  return sales.filter(v=>{
+    const d=new Date(v.timestamp);
+    if(period==='day')  return v.date===todayStr();
+    if(period==='week') {const s=new Date(now);s.setDate(now.getDate()-now.getDay());s.setHours(0,0,0,0);return d>=s;}
+    if(period==='month')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    if(period==='year') return d.getFullYear()===now.getFullYear();
+    return true;
+  });
+}
+
+// ── Escáner ───────────────────────────────────────────────
+let scanStream=null,scanIv=null;
+function stopScanner(){clearInterval(scanIv);scanIv=null;if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}}
+async function startScanner(onDetect){
+  stopScanner();
+  const v=el('sv');if(!v)return;
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    v.srcObject=scanStream;
+    if('BarcodeDetector' in window){
+      const det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','upc_a','upc_e']});
+      scanIv=setInterval(async()=>{
+        if(v.readyState===4){const c=await det.detect(v).catch(()=>[]);if(c.length){stopScanner();onDetect(c[0].rawValue);}}
+      },400);
+    }
+  }catch(e){}
+}
+
+// ── WhatsApp ──────────────────────────────────────────────
+function sendWA(sale,num){
+  const pm={cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia'}[sale.payMethod]||'—';
+  const lines=sale.items.map(i=>`• ${i.name} x${i.qty} = ${fmt(i.price*i.qty)}`).join('\n');
+  const msg=`🏪 *${STORE_NAME}*\n\n📋 *Ticket de compra*\n${new Date(sale.timestamp).toLocaleString('es-MX')}\n\n`+lines
+    +`\n\n💰 *Total: ${fmt(sale.total)}*\n💳 Pago: ${pm}`+(sale.change>0?`\n💵 Cambio: ${fmt(sale.change)}`:'')
+    +`\n\n¡Gracias por su compra! 🙏`;
+  window.open(`https://wa.me/52${num.replace(/\D/g,'').slice(0,10)}?text=${encodeURIComponent(msg)}`,'_blank');
+  S.whatsModal=null;S.whatsNum='';S.receipt=null;render();
+}
+
+// ════════════════════════════════════════════════════════════
+// RENDER
+// ════════════════════════════════════════════════════════════
+function D(){
+  return S.dark
+  ? {bg:'#080812',card:'rgba(255,255,255,0.03)',brd:'rgba(255,255,255,0.07)',fg:'#fff',sub:'#666',inp:'rgba(255,255,255,0.05)',inpB:'rgba(255,255,255,0.09)',hdr:'rgba(0,0,0,0.75)',nav:'rgba(0,0,0,0.85)',hvr:'rgba(0,229,160,0.08)'}
+  : {bg:'#f4f6fb',card:'#fff',brd:'#e4e8f0',fg:'#111',sub:'#888',inp:'#f8f9fc',inpB:'#dde1ea',hdr:'rgba(255,255,255,0.95)',nav:'rgba(255,255,255,0.95)',hvr:'rgba(0,180,130,0.06)'};
+}
+const cs=o=>Object.entries(o).map(([k,v])=>`${k.replace(/([A-Z])/g,m=>'-'+m.toLowerCase())}:${v}`).join(';');
+function crd(){const d=D();return `background:${d.card};border:1px solid ${d.brd};border-radius:14px;padding:14px;margin-bottom:10px;`;}
+function inp(){const d=D();return `padding:11px 13px;border-radius:9px;border:1px solid ${d.inpB};background:${d.inp};color:${d.fg};font-size:14px;width:100%;box-sizing:border-box;outline:none;font-family:'DM Sans',sans-serif;`;}
+function btn(bg='#00e5a0',fg='#000'){return `padding:12px 18px;background:${bg};color:${fg};border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;`;}
+function tg(c){return `padding:2px 8px;border-radius:20px;background:${c}22;color:${c};font-size:11px;font-weight:700;display:inline-block;`;}
+function nbtn(a,id,ico,lbl){const d=D();return `<button onclick="ST('${id}')" style="flex:1;padding:11px 4px;background:none;border:none;color:${a?'#00e5a0':d.sub};font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:${a?700:400};border-top:${a?'2px solid #00e5a0':'2px solid transparent'};font-family:'DM Sans',sans-serif;"><span style="font-size:22px;">${ico}</span>${lbl}</button>`;}
+
+function lowStock(){return S.prods.filter(p=>p.stock<=p.min);}
+function todayActive(){return S.sales.filter(s=>s.date===todayStr()&&!s.cancelled);}
+function todayProfit(){return todayActive().reduce((s,v)=>s+v.profit,0);}
+
+// ── Login ─────────────────────────────────────────────────
+function rLogin(){
+  const d=D();
+  return `<div style="min-height:100vh;background:${S.dark?'linear-gradient(135deg,#050510,#0d0d25,#050515)':d.bg};display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="width:100%;max-width:400px;">
+    <div style="text-align:center;margin-bottom:36px;">
+      <div style="width:64px;height:64px;background:linear-gradient(135deg,#00e5a0,#00b4d8);border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 12px;box-shadow:0 8px 32px rgba(0,229,160,0.3);">🏪</div>
+      <div style="color:${d.fg};font-size:24px;font-weight:900;">${STORE_NAME}</div>
+      <div style="color:#00e5a0;font-size:11px;font-weight:700;letter-spacing:4px;margin-top:4px;">PUNTO DE VENTA IMPULSO</div>
+      <div style="color:${d.sub};font-size:12px;margin-top:6px;">${OWNER_NAME}</div>
+    </div>
+    ${S.showInstall?`<div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);border-radius:14px;padding:14px;margin-bottom:16px;display:flex;align-items:center;gap:12px;">
+      <div style="font-size:28px;">📲</div>
+      <div style="flex:1;">
+        <div style="color:#00e5a0;font-weight:700;font-size:13px;">Instala la app</div>
+        <div style="color:${d.sub};font-size:11px;margin-top:2px;">Accede más rápido desde tu pantalla de inicio</div>
+      </div>
+      <button onclick="installApp()" style="${btn()};padding:8px 14px;font-size:12px;">Instalar</button>
+    </div>`:''}
+    <div style="background:${d.card};border:1px solid ${d.brd};border-radius:20px;padding:28px;">
+      <div style="color:${d.fg};font-weight:700;font-size:17px;margin-bottom:18px;">Iniciar sesión</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <input id="le" type="email" placeholder="Correo electrónico" style="${inp()}"/>
+        <input id="lp" type="password" placeholder="Contraseña" style="${inp()}" onkeydown="if(event.key==='Enter')LC()"/>
+        <div>
+          <div style="color:${d.sub};font-size:11px;margin-bottom:6px;">¿Cuál caja eres?</div>
+          <select id="lc" style="${inp()}">
+            <option>Caja 1</option><option>Caja 2</option><option>Caja 3</option>
+          </select>
+        </div>
+        <button onclick="LC()" style="${btn()};padding:14px;font-size:16px;margin-top:4px;">Entrar →</button>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:14px;">
+      <button onclick="S.dark=!S.dark;render()" style="background:none;border:none;color:${d.sub};cursor:pointer;font-size:13px;">${S.dark?'☀️ Modo día':'🌙 Modo noche'}</button>
+    </div>
+  </div></div>`;
+}
+
+// ── Header ────────────────────────────────────────────────
+function rHdr(){
+  const d=D();const ls=lowStock();
+  return `<div style="background:${d.hdr};border-bottom:1px solid ${d.brd};padding:11px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:90;backdrop-filter:blur(20px);">
+  <div>
+    <div style="font-weight:900;font-size:14px;color:${d.fg};">${STORE_NAME}</div>
+    <div style="font-size:10px;color:${d.sub};">${S.cashier}</div>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px;">
+    ${ls.length>0?`<div style="background:#ffa500;color:#000;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;">⚠️${ls.length}</div>`:''}
+    <div style="text-align:right;margin-right:2px;">
+      <div style="color:#00e5a0;font-weight:800;font-size:13px;">${fmt(todayProfit())}</div>
+      <div style="font-size:9px;color:${d.sub};">ganancia hoy</div>
+    </div>
+    <button onclick="S.dark=!S.dark;render()" style="background:${S.dark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.07)'};border:1px solid ${d.brd};color:${d.fg};border-radius:8px;padding:5px 9px;cursor:pointer;font-size:16px;line-height:1;">${S.dark?'☀️':'🌙'}</button>
+    <button onclick="doLogout()" style="background:${S.dark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.04)'};border:1px solid ${d.brd};color:${d.sub};border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;">Salir</button>
+  </div></div>`;
+}
+
+// ── Vender ────────────────────────────────────────────────
+function rSell(){
+  const d=D();const T=cartTotal(),P=cartProfit(),C=cartChange();
+  const tSales=S.sales.filter(s=>s.date===todayStr());
+  return `
+  <div style="${crd()}display:flex;gap:8px;">
+    <input id="bci" value="${S.bcInput}" oninput="S.bcInput=this.value" placeholder="Escanea o escribe código de barras"
+      onkeydown="if(event.key==='Enter'&&this.value){addByBarcode(this.value);S.bcInput='';this.value='';}"
+      style="${inp()}flex:1;" autofocus/>
+    <button onclick="S.scanner=true;render()" style="${btn(S.dark?'#1e3a2f':'#e8f5f0')};padding:11px 13px;font-size:20px;color:#00e5a0;">📷</button>
+    <button onclick="addByBarcode(el('bci').value);S.bcInput='';el('bci').value='';" style="${btn(S.dark?'#252540':'#ebebf5')};padding:11px 14px;color:${d.sub};">+</button>
+  </div>
+  <div style="${crd()}">
+    <input value="${S.searchQ}" oninput="S.searchQ=this.value;render()" placeholder="🔍 Buscar producto por nombre..." style="${inp()}"/>
+    ${S.searchQ?`<div style="margin-top:8px;max-height:180px;overflow-y:auto;">
+      ${S.prods.filter(p=>p.name.toLowerCase().includes(S.searchQ.toLowerCase())).slice(0,6).map(p=>`
+      <div onclick="addByBarcode('${p.barcode}');S.searchQ='';render();"
+        style="padding:9px 11px;border-radius:8px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"
+        onmouseover="this.style.background='${d.hvr}'" onmouseout="this.style.background='transparent'">
+        <div><div style="font-size:13px;font-weight:600;color:${d.fg};">${p.name}</div><div style="font-size:11px;color:${d.sub};">Stock: ${p.stock}</div></div>
+        <div style="color:#00e5a0;font-weight:700;">${fmt(p.price)}</div>
+      </div>`).join('')}
+    </div>`:''}
+  </div>
+  ${S.cart.length>0?`
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:13px;margin-bottom:10px;font-weight:600;">🛒 Carrito (${S.cart.length})</div>
+    ${S.cart.map(it=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:9px;padding-bottom:9px;border-bottom:1px solid ${d.brd};">
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:${d.fg};">${it.name}</div><div style="font-size:11px;color:${d.sub};">${fmt(it.price)} c/u</div></div>
+      <div style="display:flex;align-items:center;gap:5px;">
+        <button onclick="CQ('${it.barcode}',-1)" style="width:26px;height:26px;border:1px solid ${d.brd};background:transparent;color:${d.fg};border-radius:6px;cursor:pointer;font-weight:700;">−</button>
+        <span style="min-width:22px;text-align:center;font-weight:700;font-size:14px;color:${d.fg};">${it.qty}</span>
+        <button onclick="CQ('${it.barcode}',1)" style="width:26px;height:26px;border:1px solid #00e5a0;background:transparent;color:#00e5a0;border-radius:6px;cursor:pointer;font-weight:700;">+</button>
+      </div>
+      <div style="min-width:56px;text-align:right;font-weight:700;color:#00e5a0;font-size:13px;">${fmt(it.price*it.qty)}</div>
+      <button onclick="RC('${it.barcode}')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:18px;line-height:1;">×</button>
+    </div>`).join('')}
+    <div style="margin-bottom:12px;">
+      <div style="color:${d.sub};font-size:12px;margin-bottom:7px;font-weight:600;">Forma de pago</div>
+      <div style="display:flex;gap:7px;">
+        ${PAYMENTS.map(m=>`<button onclick="S.payMethod='${m.id}';render()"
+          style="flex:1;padding:9px 6px;border-radius:9px;border:2px solid ${S.payMethod===m.id?'#00e5a0':d.brd};background:${S.payMethod===m.id?(S.dark?'rgba(0,229,160,0.12)':'rgba(0,180,130,0.08)'):'transparent'};color:${S.payMethod===m.id?'#00e5a0':d.sub};cursor:pointer;font-size:12px;font-weight:${S.payMethod===m.id?700:400};display:flex;flex-direction:column;align-items:center;gap:2px;font-family:'DM Sans',sans-serif;">
+          <span style="font-size:18px;">${m.icon}</span>${m.label}</button>`).join('')}
+      </div>
+    </div>
+    <div style="border-top:1px solid ${d.brd};padding-top:12px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:5px;"><span style="color:${d.sub};">Total</span><span style="font-weight:800;font-size:20px;color:${d.fg};">${fmt(T)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:12px;"><span style="color:${d.sub};font-size:13px;">Ganancia estimada</span><span style="color:#00e5a0;font-weight:700;">${fmt(P)}</span></div>
+      ${S.payMethod==='cash'?`<input id="pi" type="number" value="${S.paid}" oninput="S.paid=this.value;render()" placeholder="Pago del cliente (total ${fmt(T)})" style="${inp()}margin-bottom:8px;"/>
+      ${S.paid&&parseFloat(S.paid)>=T?`<div style="display:flex;justify-content:space-between;background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);border-radius:8px;padding:8px 12px;margin-bottom:8px;">
+        <span style="color:#00e5a0;font-size:13px;">Cambio</span><span style="color:#00e5a0;font-weight:800;">${fmt(C)}</span></div>`:''}`:''} 
+      <div style="display:flex;gap:8px;">
+        <button onclick="S.cart=[];S.paid='';render()" style="${btn(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;">Cancelar</button>
+        <button onclick="finalizeSale()" style="${btn()};flex:2;opacity:${S.payMethod==='cash'&&S.paid&&parseFloat(S.paid)<T?.5:1};">💳 Cobrar ${fmt(T)}</button>
+      </div>
+    </div>
+  </div>`:`<div style="text-align:center;padding:48px 20px;color:${d.sub};"><div style="font-size:52px;margin-bottom:10px;">🛒</div><div style="font-size:14px;">Carrito vacío</div></div>`}
+  ${tSales.length>0?`
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:600;margin-bottom:10px;">🕐 Ventas de hoy</div>
+    ${tSales.slice(-5).reverse().map(s=>`
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid ${d.brd};opacity:${s.cancelled?.5:1};">
+      <div style="flex:1;min-width:0;"><div style="font-size:12px;font-weight:600;color:${d.fg};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.items.map(i=>i.name).join(', ')}</div>
+      <div style="font-size:11px;color:${d.sub};">${new Date(s.timestamp).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})} · ${s.cashierName}</div></div>
+      <div style="font-weight:700;font-size:13px;color:${s.cancelled?'#ff6b6b':'#00e5a0'};flex-shrink:0;">${s.cancelled?'CANCELADA':fmt(s.total)}</div>
+      ${!s.cancelled?`<button onclick="S.cancelModal=${JSON.stringify(s).replace(/"/g,'&quot;')};render()"
+        style="padding:5px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;flex-shrink:0;">⛔</button>`:''}
+    </div>`).join('')}
+  </div>`:''}`;
+}
+
+// ── Inventario ────────────────────────────────────────────
+function rInv(){
+  const d=D();const ls=lowStock();
+  const fil=S.prods.filter(p=>!S.searchQ||p.name.toLowerCase().includes(S.searchQ.toLowerCase())||p.barcode.includes(S.searchQ)||p.cat.toLowerCase().includes(S.searchQ.toLowerCase()));
+  return `
+  <div style="display:flex;gap:8px;margin-bottom:10px;">
+    <input value="${S.searchQ}" oninput="S.searchQ=this.value;render()" placeholder="🔍 Buscar..." style="${inp()}flex:1;"/>
+    <button onclick="OA()" style="${btn()};padding:11px 14px;white-space:nowrap;">+ Nuevo</button>
+  </div>
+  ${ls.length>0?`<div style="background:rgba(255,165,0,0.06);border:1px solid rgba(255,165,0,0.25);border-radius:12px;padding:12px;margin-bottom:10px;">
+    <div style="color:#ffa500;font-weight:700;font-size:13px;margin-bottom:6px;">⚠️ ${ls.length} bajo stock mínimo</div>
+    ${ls.map(p=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:${d.sub};margin-bottom:2px;"><span>${p.name}</span><span style="color:${p.stock===0?'#ff6b6b':'#ffa500'};">${p.stock===0?'AGOTADO':`${p.stock} pzas`}</span></div>`).join('')}
+  </div>`:''}
+  <div style="color:${d.sub};font-size:12px;margin-bottom:8px;">${fil.length} de ${S.prods.length} productos</div>
+  ${fil.map(p=>`<div style="${crd()}padding:11px 13px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;">
+      <div style="flex:1;min-width:0;"><div style="font-weight:700;font-size:13px;color:${d.fg};">${p.name}</div>
+      <div style="font-family:'DM Mono',monospace;font-size:10px;color:${d.sub};">${p.barcode} · ${p.cat}</div></div>
+      <div style="${tg(p.stock===0?'#ff6b6b':p.stock<=p.min?'#ffa500':'#00e5a0')}">${p.stock} pzas</div>
+    </div>
+    <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:8px;">
+      <span style="color:${d.sub};">Compra: <b style="color:${d.fg};">${fmt(p.cost)}</b></span>
+      <span style="color:${d.sub};">Venta: <b style="color:#00e5a0;">${fmt(p.price)}</b></span>
+      <span style="color:${d.sub};">Gan: <b style="color:#00b4d8;">${fmt(p.price-p.cost)}</b></span>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      <input type="number" min="0" value="${p.stock}" onchange="US('${p.barcode}',this.value)"
+        style="${inp()}width:80px;padding:6px 10px;font-size:13px;"/>
+      <span style="color:${d.sub};font-size:12px;">← Actualizar existencia</span>
+    </div>
+  </div>`).join('')}
+  ${S.addModal?`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:200;display:flex;align-items:flex-end;justify-content:center;">
+  <div style="background:${S.dark?'#111':d.bg};border:1px solid ${d.brd};border-radius:20px 20px 0 0;padding:24px;width:100%;max-width:480px;padding-bottom:36px;max-height:90vh;overflow-y:auto;">
+    <div style="font-weight:800;font-size:16px;color:${d.fg};margin-bottom:4px;">Agregar producto</div>
+    <div style="color:${d.sub};font-size:12px;margin-bottom:16px;">Escanea el código o escríbelo</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px;">
+      <input id="nb" value="${S.newP.barcode}" oninput="S.newP.barcode=this.value" placeholder="Código de barras *"
+        style="${inp()}flex:1;font-family:'DM Mono',monospace;"/>
+      <button onclick="S.scanForAdd=true;render()" style="${btn(S.dark?'#1e3a2f':'#e8f5f0')};padding:11px 13px;font-size:20px;color:#00e5a0;">📷</button>
+    </div>
+    <input id="nn" value="${S.newP.name}" oninput="S.newP.name=this.value" placeholder="Nombre del producto *" style="${inp()}margin-bottom:10px;"/>
+    <input id="nc" value="${S.newP.cat}"  oninput="S.newP.cat=this.value"  placeholder="Categoría" style="${inp()}margin-bottom:10px;"/>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:12px;">
+      ${[['cost','Precio de compra'],['price','Precio de venta'],['stock','Existencia inicial'],['min','Stock mínimo']].map(([f,ph])=>`<div>
+        <div style="color:${d.sub};font-size:11px;margin-bottom:4px;">${ph}</div>
+        <input type="number" id="n${f}" value="${S.newP[f]}" oninput="S.newP.${f}=this.value;render()" placeholder="0" style="${inp()}"/>
+      </div>`).join('')}
+    </div>
+    ${S.newP.cost&&S.newP.price?`<div style="background:rgba(0,229,160,0.07);border:1px solid rgba(0,229,160,0.2);border-radius:9px;padding:8px 12px;margin-bottom:12px;font-size:13px;">
+      Ganancia por pieza: <b style="color:#00e5a0;">${fmt(+S.newP.price-(+S.newP.cost))} (${(((+S.newP.price-(+S.newP.cost))/(+S.newP.cost||1))*100).toFixed(0)}%)</b></div>`:''}
+    <div style="display:flex;gap:8px;">
+      <button onclick="S.addModal=false;render()" style="${btn(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;">Cancelar</button>
+      <button onclick="SNP()" style="${btn()};flex:2;">Guardar producto</button>
+    </div>
+  </div></div>`:''}`;
+}
+
+// ── Reportes ──────────────────────────────────────────────
+function rRep(){
+  const d=D();
+  const filt=filterPeriod(S.sales,S.period);
+  const act=filt.filter(s=>!s.cancelled);
+  const rev=act.reduce((s,v)=>s+v.total,0),prf=act.reduce((s,v)=>s+v.profit,0);
+  const byM={cash:0,card:0,transfer:0};act.forEach(s=>{byM[s.payMethod]=(byM[s.payMethod]||0)+s.total;});
+  const byCaja={};act.forEach(s=>{const n=s.cashierName||'Caja 1';if(!byCaja[n])byCaja[n]={rev:0,profit:0,count:0};byCaja[n].rev+=s.total;byCaja[n].profit+=s.profit;byCaja[n].count++;});
+  const last7=[...Array(7)].map((_,i)=>{const dt=new Date();dt.setDate(dt.getDate()-i);const ds=dt.toISOString().split('T')[0];
+    const day=S.sales.filter(s=>s.date===ds&&!s.cancelled);
+    return{label:i===0?'Hoy':dt.toLocaleDateString('es-MX',{weekday:'short'}),rev:day.reduce((s,v)=>s+v.total,0),profit:day.reduce((s,v)=>s+v.profit,0)};
+  }).reverse();
+  const maxR=Math.max(...last7.map(d=>d.rev),1);
+  const top5=S.prods.map(p=>({...p,sold:act.flatMap(s=>s.items).filter(i=>i.barcode===p.barcode).reduce((s,i)=>s+i.qty,0)})).sort((a,b)=>b.sold-a.sold).slice(0,5);
+  const now=new Date();
+  const PL={day:'Hoy',week:'Esta semana',month:'Este mes',year:'Este año'};
+  const PS={day:now.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),
+    week:`Semana del ${new Date(new Date().setDate(now.getDate()-now.getDay())).toLocaleDateString('es-MX',{day:'numeric',month:'short'})}`,
+    month:new Date().toLocaleDateString('es-MX',{month:'long',year:'numeric'}),year:new Date().getFullYear().toString()}[S.period];
+  return `
+  <div style="${crd()}padding:10px 12px;">
+    <div style="color:${d.sub};font-size:11px;margin-bottom:8px;font-weight:600;">PERIODO DEL REPORTE</div>
+    <div style="display:flex;gap:6px;">
+      ${[['day','Hoy'],['week','Semana'],['month','Mes'],['year','Año']].map(([id,lbl])=>`
+      <button onclick="S.period='${id}';render()" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid ${S.period===id?'#00e5a0':d.brd};background:${S.period===id?(S.dark?'rgba(0,229,160,0.1)':'rgba(0,180,130,0.07)'):'transparent'};color:${S.period===id?'#00e5a0':d.sub};cursor:pointer;font-size:12px;font-weight:${S.period===id?700:400};font-family:'DM Sans',sans-serif;">${lbl}</button>`).join('')}
+    </div>
+  </div>
+  <button onclick="printReport(filterPeriod(S.sales,S.period),'${PL[S.period]}','${PS}')"
+    style="${btn(S.dark?'#1e3a2f':'#e8f5f0','#00e5a0')};width:100%;margin-bottom:10px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid rgba(0,229,160,0.3);">
+    📥 Descargar PDF — ${PL[S.period]}
+  </button>
+  <div style="${crd()}background:${S.dark?'linear-gradient(135deg,rgba(0,229,160,0.07),rgba(0,180,216,0.07))':'linear-gradient(135deg,rgba(0,229,160,0.04),rgba(0,180,216,0.04))'};border:1px solid rgba(0,229,160,0.15);">
+    <div style="color:${d.sub};font-size:12px;margin-bottom:8px;">📊 ${PL[S.period]} — ${PS}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;">
+      ${[['Ventas',act.length,d.fg],['Ingresos',fmt(rev),'#00b4d8'],['Ganancia',fmt(prf),'#00e5a0'],['Canceladas',filt.filter(s=>s.cancelled).length,'#ff6b6b']].map(([l,v,c])=>`
+      <div style="text-align:center;"><div style="color:${c};font-size:18px;font-weight:900;line-height:1;">${v}</div><div style="color:${d.sub};font-size:9px;margin-top:3px;">${l}</div></div>`).join('')}
+    </div>
+  </div>
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:600;margin-bottom:10px;">💳 Por forma de pago</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+      ${PAYMENTS.map(m=>`<div style="text-align:center;padding:10px 6px;border-radius:10px;background:${S.dark?'rgba(255,255,255,0.02)':'rgba(0,0,0,0.02)'};border:1px solid ${d.brd};">
+        <div style="font-size:20px;">${m.icon}</div>
+        <div style="color:#00e5a0;font-weight:800;font-size:14px;margin-top:3px;">${fmt(byM[m.id]||0)}</div>
+        <div style="color:${d.sub};font-size:10px;">${m.label}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  ${Object.keys(byCaja).length>1?`<div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:600;margin-bottom:10px;">🏪 Desglose por caja (tiempo real)</div>
+    ${Object.entries(byCaja).map(([name,data])=>`<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:8px;border-bottom:1px solid ${d.brd};">
+      <div><div style="font-size:13px;font-weight:600;color:${d.fg};">${name}</div><div style="font-size:11px;color:${d.sub};">${data.count} ventas</div></div>
+      <div style="text-align:right;"><div style="color:#00e5a0;font-weight:700;">${fmt(data.profit)}</div><div style="font-size:11px;color:${d.sub};">ganancia</div></div>
+    </div>`).join('')}
+  </div>`:''}
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:600;margin-bottom:10px;">📈 Últimos 7 días</div>
+    <div style="display:flex;align-items:flex-end;gap:5px;height:110px;">
+      ${last7.map(day=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+        ${day.rev>0?`<div style="font-size:8px;color:#00e5a0;font-weight:700;">${fmt(day.profit)}</div>`:''}
+        <div style="width:100%;display:flex;flex-direction:column;gap:2px;align-items:center;">
+          <div style="width:80%;background:rgba(0,229,160,0.7);border-radius:3px 3px 0 0;height:${Math.max(day.profit>0?3:0,(day.profit/maxR)*75)}px;"></div>
+          <div style="width:80%;background:rgba(0,180,216,0.25);border-radius:0 0 3px 3px;height:${Math.max(day.rev>0?3:0,(day.rev/maxR)*75)}px;"></div>
+        </div>
+        <div style="font-size:9px;color:${d.sub};text-align:center;">${day.label}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:600;margin-bottom:10px;">🏆 Top 5 más vendidos</div>
+    ${top5.filter(p=>p.sold>0).length===0?`<div style="color:${d.sub};font-size:13px;">Sin ventas en este periodo</div>`:
+    top5.filter(p=>p.sold>0).map((p,i)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:9px;padding-bottom:9px;border-bottom:${i<4?`1px solid ${d.brd}`:'none'};">
+      <div style="width:26px;height:26px;background:${i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':S.dark?'#1e1e30':'#eee'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:12px;color:${i<3?'#000':d.sub};flex-shrink:0;">${i+1}</div>
+      <div style="flex:1;min-width:0;"><div style="font-size:13px;font-weight:600;color:${d.fg};">${p.name}</div><div style="font-size:11px;color:${d.sub};">${p.sold} piezas</div></div>
+    </div>`).join('')}
+  </div>
+  ${lowStock().length>0?`<div style="${crd()}background:rgba(255,165,0,0.05);border:1px solid rgba(255,165,0,0.2);">
+    <div style="color:#ffa500;font-weight:700;margin-bottom:8px;font-size:13px;">⚠️ Stock bajo — revisar y surtir</div>
+    ${lowStock().map(p=>`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:4px;color:${d.sub};"><span>${p.name}</span><span style="color:${p.stock===0?'#ff6b6b':'#ffa500'};">${p.stock===0?'AGOTADO':`${p.stock} pzas`}</span></div>`).join('')}
+  </div>`:''}`;
+}
+
+// ── Modales ───────────────────────────────────────────────
+function rModals(){
+  const d=D();let h='';
+  if(S.scanner||S.scanForAdd){
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:2000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;padding:20px;">
+    <div style="color:#00e5a0;font-size:13px;text-align:center;">📷 Apunta al código de barras — o escríbelo abajo</div>
+    <div style="position:relative;width:280px;height:200px;border-radius:14px;overflow:hidden;border:2px solid #00e5a0;">
+      <video id="sv" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+      <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,229,160,0.9);animation:scan 2s ease-in-out infinite;"></div>
+    </div>
+    <div style="display:flex;gap:8px;width:100%;max-width:320px;">
+      <input id="sm" placeholder="O escribe el código aquí" autofocus onkeydown="if(event.key==='Enter'&&this.value)SD(this.value);"
+        style="${inp()}flex:1;"/>
+      <button onclick="SD(el('sm').value)" style="${btn()};padding:11px 18px;">OK</button>
+    </div>
+    <button onclick="CS()" style="padding:8px 24px;background:transparent;color:#666;border:1px solid #333;border-radius:8px;cursor:pointer;font-size:13px;">Cancelar</button>
+    </div>`;
+    setTimeout(()=>startScanner(SD),100);
+  }
+  if(S.receipt){const r=S.receipt;const pm=PAYMENTS.find(m=>m.id===r.payMethod);
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:300;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(0,229,160,0.25);border-radius:20px;padding:24px;width:100%;max-width:340px;max-height:90vh;overflow-y:auto;">
+      <div style="text-align:center;margin-bottom:14px;"><div style="font-size:42px;margin-bottom:6px;">✅</div>
+      <div style="color:#00e5a0;font-weight:900;font-size:18px;">¡Venta completada!</div>
+      <div style="color:${d.sub};font-size:11px;margin-top:2px;">${STORE_NAME} · ${S.cashier}</div></div>
+      <div style="border-top:1px dashed ${d.brd};border-bottom:1px dashed ${d.brd};padding:10px 0;margin:10px 0;">
+        ${r.items.map(it=>`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;"><span style="color:${d.sub};">${it.name} ×${it.qty}</span><span style="color:${d.fg};">${fmt(it.price*it.qty)}</span></div>`).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:5px;">
+        <div style="display:flex;justify-content:space-between;font-weight:800;font-size:18px;color:${d.fg};"><span>Total</span><span style="color:#00e5a0;">${fmt(r.total)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:${d.sub};">Pago</span><span style="color:${d.fg};">${pm?.icon} ${pm?.label}</span></div>
+        ${r.payMethod==='cash'?`<div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:${d.sub};">Pagó</span><span style="color:${d.fg};">${fmt(r.paid)}</span></div>
+        ${r.change>0?`<div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:${d.sub};">Cambio</span><span style="color:#ffa500;font-weight:700;">${fmt(r.change)}</span></div>`:''}`:''} 
+        <div style="background:rgba(0,229,160,0.06);border-radius:8px;padding:8px 11px;margin-top:3px;">
+          <div style="display:flex;justify-content:space-between;font-size:13px;"><span style="color:${d.sub};">Tu ganancia</span><span style="color:#00e5a0;font-weight:800;">+${fmt(r.profit)}</span></div>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;margin-top:16px;">
+        <button onclick="S.whatsModal=S.receipt;render()" style="${btn('#25D366','#fff')};flex:1;display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;"><span style="font-size:16px;">📲</span> WhatsApp</button>
+        <button onclick="S.receipt=null;render()" style="${btn()};flex:2;font-size:15px;">+ Nueva venta</button>
+      </div>
+    </div></div>`;
+  }
+  if(S.whatsModal){
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:400;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(37,211,102,0.3);border-radius:20px;padding:24px;width:100%;max-width:340px;">
+      <div style="font-size:36px;text-align:center;margin-bottom:8px;">📲</div>
+      <div style="font-weight:800;font-size:16px;color:${d.fg};text-align:center;margin-bottom:4px;">Enviar ticket por WhatsApp</div>
+      <div style="color:${d.sub};font-size:12px;text-align:center;margin-bottom:16px;">El número <b style="color:#ff6b6b;">no queda guardado</b>.</div>
+      <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Número del cliente (10 dígitos)</div>
+      <input id="wn" type="tel" maxlength="10" value="${S.whatsNum}"
+        oninput="S.whatsNum=this.value.replace(/\\D/g,'').slice(0,10);this.value=S.whatsNum;"
+        placeholder="5512345678" style="${inp()}font-family:'DM Mono',monospace;font-size:18px;letter-spacing:2px;text-align:center;margin-bottom:6px;"/>
+      <div style="color:${d.sub};font-size:11px;text-align:center;margin-bottom:14px;">Se agrega +52 automáticamente</div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="S.whatsModal=null;S.whatsNum='';S.receipt=null;render()" style="${btn(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;">Omitir</button>
+        <button onclick="if(S.whatsNum.length===10)sendWA(S.whatsModal,S.whatsNum);else notify('Ingresa 10 dígitos','err');"
+          style="${btn('#25D366','#fff')};flex:2;display:flex;align-items:center;justify-content:center;gap:6px;">📲 Enviar</button>
+      </div>
+    </div></div>`;
+  }
+  if(S.cancelModal){const s=S.cancelModal;
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1500;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(255,107,107,0.4);border-radius:20px;padding:24px;width:100%;max-width:360px;">
+      <div style="text-align:center;margin-bottom:20px;"><div style="font-size:44px;margin-bottom:8px;">⛔</div>
+      <div style="color:#ff6b6b;font-weight:900;font-size:18px;">Cancelar venta</div>
+      <div style="color:${d.sub};font-size:12px;margin-top:4px;">Esta acción requiere tu contraseña</div></div>
+      <div style="background:${S.dark?'rgba(255,255,255,0.03)':'#f8f8f8'};border:1px solid ${d.brd};border-radius:10px;padding:12px;margin-bottom:16px;">
+        <div style="font-size:12px;color:${d.sub};margin-bottom:6px;">Venta a cancelar:</div>
+        ${s.items.map(it=>`<div style="display:flex;justify-content:space-between;font-size:12px;color:${d.fg};margin-bottom:2px;"><span>${it.name} ×${it.qty}</span><span>${fmt(it.price*it.qty)}</span></div>`).join('')}
+        <div style="border-top:1px solid ${d.brd};margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700;color:${d.fg};"><span>Total</span><span style="color:#ff6b6b;">${fmt(s.total)}</span></div>
+      </div>
+      <div style="margin-bottom:12px;">
+        <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Motivo *</div>
+        <select id="cr" style="${inp()}">
+          <option value="">Selecciona un motivo...</option>
+          <option>Cliente desistió de la compra</option>
+          <option>Pago con tarjeta rechazado</option>
+          <option>Producto no disponible</option>
+          <option>Error en el cobro</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">🔑 Contraseña del negocio *</div>
+        <input id="cp" type="password" placeholder="Ingresa tu contraseña para autorizar" onkeydown="if(event.key==='Enter')CC()"
+          style="${inp()}border:2px solid ${d.inpB};"/>
+        <div id="ce" style="display:none;color:#ff6b6b;font-size:12px;margin-top:6px;"></div>
+      </div>
+      <div style="background:rgba(255,107,107,0.06);border:1px solid rgba(255,107,107,0.15);border-radius:8px;padding:8px 12px;margin-bottom:14px;font-size:12px;color:${S.dark?'#ff9999':'#cc4444'};">
+        ⚠️ El inventario se restaurará automáticamente.
+      </div>
+      <div style="display:flex;gap:8px;">
+        <button onclick="S.cancelModal=null;render()" style="${btn(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;">Volver</button>
+        <button onclick="CC()" style="${btn('#ff6b6b','#fff')};flex:2;">⛔ Confirmar cancelación</button>
+      </div>
+    </div></div>`;
+  }
+  if(S.notif) h+=`<div style="position:fixed;top:66px;left:50%;transform:translateX(-50%);background:${S.notif.type==='err'?'#ff6b6b':'#00e5a0'};color:#000;padding:9px 20px;border-radius:10px;font-weight:700;font-size:13px;z-index:600;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.4);">${S.notif.msg}</div>`;
+  return h;
+}
+
+// ── Render principal ──────────────────────────────────────
+function render(){
+  const d=D();const root=el('root');
+  if(S.loading){
+    root.innerHTML=`<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;background:${d.bg};">
+      <div style="width:40px;height:40px;border:3px solid rgba(0,229,160,0.2);border-top-color:#00e5a0;border-radius:50%;animation:spin 1s linear infinite;"></div>
+      <div style="color:#444;font-size:13px;">Sincronizando datos...</div></div>`;
+    return;
+  }
+  if(!S.user){root.innerHTML=rLogin()+rModals();return;}
+  root.innerHTML=`<div style="min-height:100vh;background:${d.bg};color:${d.fg};display:flex;flex-direction:column;max-width:480px;margin:0 auto;transition:background .3s;">
+    ${rHdr()}
+    <div style="flex:1;overflow-y:auto;padding:14px 14px 80px;">
+      ${S.tab==='sell'?rSell():S.tab==='inv'?rInv():rRep()}
+    </div>
+    <div style="display:flex;background:${d.nav};border-top:1px solid ${d.brd};position:sticky;bottom:0;z-index:90;backdrop-filter:blur(20px);">
+      ${nbtn(S.tab==='sell','sell','🏪','Vender')}${nbtn(S.tab==='inv','inv','📦','Inventario')}${nbtn(S.tab==='rep','rep','📊','Reportes')}
+    </div>
+  </div>${rModals()}`;
+}
+
+// ── Handlers globales ─────────────────────────────────────
+window.LC=()=>doLogin(el('le')?.value||'',el('lp')?.value||'',el('lc')?.value||'Caja 1');
+window.ST=t=>{S.tab=t;S.searchQ='';render();};
+window.CQ=(b,d)=>{const p=S.prods.find(p=>p.barcode===b);S.cart=S.cart.map(c=>{if(c.barcode!==b)return c;const nq=c.qty+d;if(nq<1)return c;if(nq>p?.stock){notify('Sin suficiente existencia','err');return c;}return{...c,qty:nq};});render();};
+window.RC=b=>{S.cart=S.cart.filter(c=>c.barcode!==b);render();};
+window.US=async(b,v)=>{const p=S.prods.find(p=>p.barcode===b);if(!p)return;await prodsRef().child(b).set({...p,stock:parseInt(v)||0});notify('✓ Stock actualizado');};
+window.OA=()=>{S.addModal=true;S.newP={barcode:'',name:'',cat:'',cost:'',price:'',stock:'',min:'5'};render();};
+window.SNP=async()=>{const p=S.newP;if(!p.barcode||!p.name){notify('Código y nombre requeridos','err');return;}if(S.prods.find(pr=>pr.barcode===p.barcode)){notify('Ese código ya existe','err');return;}await prodsRef().child(p.barcode).set({...p,cost:+p.cost,price:+p.price,stock:+p.stock,min:+p.min||5});S.addModal=false;notify('✓ Producto agregado');};
+window.SD=code=>{stopScanner();if(S.scanForAdd){S.newP.barcode=code;S.scanForAdd=false;notify('✓ Código escaneado: '+code);}else{addByBarcode(code);S.scanner=false;}render();};
+window.CS=()=>{stopScanner();S.scanner=false;S.scanForAdd=false;render();};
+window.CC=async()=>{const reason=el('cr')?.value,pass=el('cp')?.value,e=el('ce');if(!reason){if(e){e.style.display='block';e.textContent='Selecciona un motivo.';}return;}try{await firebase.auth().signInWithEmailAndPassword(S.user.email,pass);await cancelSale(S.cancelModal,reason);}catch(err){if(e){e.style.display='block';e.textContent='Contraseña incorrecta.';}}};
+window.doLogout=doLogout;window.installApp=installApp;
+window.addByBarcode=addByBarcode;window.finalizeSale=finalizeSale;
+window.filterPeriod=filterPeriod;window.printReport=printReport;
+window.el=el;window.S=S;
+
+render();
+</script>
+</body>
+</html>
