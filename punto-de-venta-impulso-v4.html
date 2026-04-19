@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#080812"/>
+<title>Punto de Venta Impulso</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700;9..40,900&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'DM Sans',sans-serif;background:#080812;color:#fff;min-height:100vh;}
+input,button,select,textarea{font-family:'DM Sans',sans-serif;}
+::-webkit-scrollbar{width:5px;}
+::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:4px;}
+@keyframes scan{0%,100%{top:15%}50%{top:80%}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@keyframes fadeUp{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.pc-wrap{display:flex;min-height:100vh;}
+.pc-sidebar{width:220px;flex-shrink:0;position:fixed;top:0;left:0;height:100vh;overflow-y:auto;padding:24px 0;display:flex;flex-direction:column;z-index:50;}
+.pc-main{margin-left:220px;flex:1;min-height:100vh;display:flex;flex-direction:column;}
+.pc-content{flex:1;overflow-y:auto;padding:28px;}
+.pc-topbar{padding:16px 28px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:40;backdrop-filter:blur(20px);}
+.mob-wrap{display:flex;flex-direction:column;min-height:100vh;max-width:480px;margin:0 auto;}
+.mob-header{padding:11px 14px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:90;backdrop-filter:blur(20px);}
+.mob-content{flex:1;overflow-y:auto;padding:14px 14px 80px;}
+.mob-nav{display:flex;position:sticky;bottom:0;z-index:90;backdrop-filter:blur(20px);}
+@media(max-width:768px){.pc-wrap{display:none!important;}.mob-wrap{display:flex!important;}}
+@media(min-width:769px){.pc-wrap{display:flex!important;}.mob-wrap{display:none!important;}}
+.btn-primary{padding:12px 20px;background:linear-gradient(135deg,#00e5a0,#00c896);color:#000;border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;transition:opacity .15s,transform .1s;}
+.btn-primary:hover{opacity:.9;}
+/* Ticket print styles */
+@media print{
+  body *{visibility:hidden;}
+  #ticket-print,#ticket-print *{visibility:visible;}
+  #ticket-print{position:fixed;left:0;top:0;width:80mm;font-family:'Courier New',monospace;font-size:12px;color:#000;}
+}
+</style>
+</head>
+<body>
+<div id="root">
+  <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:16px;">
+    <div style="width:44px;height:44px;border:3px solid rgba(0,229,160,0.2);border-top-color:#00e5a0;border-radius:50%;animation:spin 1s linear infinite;"></div>
+  </div>
+</div>
+
+<!-- Ticket oculto para impresión -->
+<div id="ticket-print" style="display:none;"></div>
+
+<script>
+// ══════════════════════════════════════════════════════════════
+// CONFIGURACIÓN DEL NEGOCIO — cambia por cada cliente
+// ══════════════════════════════════════════════════════════════
+const CFG = {
+  storeName:   "Abarrotes García",
+  ownerName:   "Carlos García",
+  address:     "Calle Reforma #123, Col. Centro",
+  phone:       "55 1234 5678",
+  complaints:  "quejas@abarrotes-garcia.com",
+  email:       "garcia@tienda.com",
+  password:    "garcia123",
+  pin2:        "2222",
+  pin3:        "3333",
+  blocked:     false,
+};
+// ══════════════════════════════════════════════════════════════
+
+const BASE_PRODS = [
+  {barcode:'7501055300847',name:'Leche Lala 1L',        cat:'Lácteos',   cost:18,price:24,stock:48,min:10},
+  {barcode:'7501055361480',name:'Leche Alpura 1L',       cat:'Lácteos',   cost:17,price:23,stock:36,min:10},
+  {barcode:'7501003127061',name:'Coca-Cola 600ml',       cat:'Refrescos', cost:14,price:20,stock:72,min:24},
+  {barcode:'7501003127078',name:'Pepsi 600ml',           cat:'Refrescos', cost:13,price:18,stock:60,min:24},
+  {barcode:'7501003135028',name:'Sprite 600ml',          cat:'Refrescos', cost:13,price:18,stock:48,min:12},
+  {barcode:'7501000613101',name:'Sabritas Original 45g', cat:'Botanas',   cost:12,price:18,stock:40,min:15},
+  {barcode:'7501000613118',name:'Ruffles 45g',           cat:'Botanas',   cost:12,price:18,stock:35,min:15},
+  {barcode:'7501000614030',name:'Cheetos 45g',           cat:'Botanas',   cost:11,price:17,stock:38,min:15},
+  {barcode:'7501000913109',name:'Pan Bimbo Blanco',      cat:'Panadería', cost:38,price:52,stock:20,min:8},
+  {barcode:'7501000913116',name:'Pan Bimbo Integral',    cat:'Panadería', cost:40,price:55,stock:15,min:8},
+  {barcode:'7501007610126',name:'Huevo Blanco 12pz',     cat:'Básicos',   cost:42,price:58,stock:30,min:10},
+  {barcode:'7501007610140',name:'Huevo Rojo 12pz',       cat:'Básicos',   cost:44,price:60,stock:25,min:10},
+  {barcode:'7501031310717',name:'Arroz Morelos 1kg',     cat:'Básicos',   cost:22,price:30,stock:50,min:20},
+  {barcode:'7500478001519',name:'Frijol Isadora 560g',   cat:'Básicos',   cost:25,price:35,stock:40,min:15},
+  {barcode:'7501234567890',name:'Azúcar Estándar 1kg',   cat:'Básicos',   cost:24,price:32,stock:55,min:20},
+  {barcode:'7501234567891',name:'Aceite Nutrioli 1L',    cat:'Básicos',   cost:58,price:78,stock:22,min:8},
+  {barcode:'7501070410204',name:'Jabón Zote 400g',       cat:'Limpieza',  cost:18,price:26,stock:30,min:10},
+  {barcode:'7501070411645',name:'Jabón Roma 500g',       cat:'Limpieza',  cost:15,price:22,stock:28,min:10},
+  {barcode:'7501346116019',name:'Detergente Ariel 500g', cat:'Limpieza',  cost:45,price:62,stock:18,min:8},
+  {barcode:'7501346111205',name:'Fabuloso 1L',           cat:'Limpieza',  cost:28,price:40,stock:24,min:8},
+  {barcode:'7500615101002',name:'Agua Ciel 1.5L',        cat:'Agua',      cost:10,price:15,stock:96,min:30},
+  {barcode:'7500615105000',name:'Agua Ciel 500ml',       cat:'Agua',      cost:7, price:12,stock:120,min:36},
+  {barcode:'7501055305125',name:'Yogurt Yoplait 150g',   cat:'Lácteos',   cost:12,price:18,stock:30,min:10},
+  {barcode:'7501003186029',name:'Jumex Mango 335ml',     cat:'Jugos',     cost:10,price:15,stock:48,min:18},
+  {barcode:'7501003186036',name:'Jumex Naranja 335ml',   cat:'Jugos',     cost:10,price:15,stock:42,min:18},
+  {barcode:'7501000618006',name:'Galletas Marías 200g',  cat:'Galletas',  cost:16,price:24,stock:35,min:12},
+  {barcode:'7501000619003',name:'Galletas Oreo 120g',    cat:'Galletas',  cost:20,price:29,stock:30,min:12},
+  {barcode:'7501234500001',name:'Café Nescafé 100g',     cat:'Bebidas',   cost:55,price:75,stock:20,min:8},
+  {barcode:'7501234500002',name:'Chocolate Abuelita',    cat:'Bebidas',   cost:62,price:85,stock:15,min:6},
+  {barcode:'7501451001021',name:'Queso Manchego 400g',   cat:'Lácteos',   cost:68,price:90,stock:12,min:4},
+];
+
+const PAYMENTS=[{id:'cash',label:'Efectivo',icon:'💵'},{id:'card',label:'Tarjeta',icon:'💳'},{id:'transfer',label:'Transferencia',icon:'📲'}];
+const LS={get:(k,fb)=>{try{const v=localStorage.getItem(k);return v?JSON.parse(v):fb;}catch{return fb;}},set:(k,v)=>{try{localStorage.setItem(k,JSON.stringify(v));}catch{}},};
+const getProds=()=>LS.get('pvi_prods',BASE_PRODS.map(p=>({...p})));
+const setProds=p=>LS.set('pvi_prods',p);
+const getSales=()=>LS.get('pvi_sales',[]);
+const setSales=s=>LS.set('pvi_sales',s);
+const fmt=n=>'$'+Number(n).toFixed(2);
+const todayStr=()=>new Date().toISOString().split('T')[0];
+const G=id=>document.getElementById(id);
+
+let S={
+  screen:'login',cashier:null,dark:true,
+  tab:'sell',prods:[],sales:[],cart:[],
+  payMethod:'cash',paid:'',
+  searchQ:'',invSearchQ:'',invScannerOpen:false,
+  period:'day',cajaFilter:'all',
+  scanner:false,scanForAdd:false,addModal:false,
+  prodDetailModal:null,  // producto a ver en detalle
+  updateStockModal:null, // producto a actualizar existencia
+  receipt:null,cancelModal:null,
+  whatsModal:null,whatsNum:'',
+  notif:null,notifTimer:null,
+  newP:{barcode:'',name:'',cat:'',cost:'',price:'',stock:'',min:'5'},
+  loginStep:'main',loginErr:'',
+  // toggle contraseña visible
+  showPass:{login:false,pin:false,cancel:false,newProd:false},
+};
+
+function notify(msg,type='ok'){
+  if(S.notifTimer)clearTimeout(S.notifTimer);
+  S.notif={msg,type};
+  S.notifTimer=setTimeout(()=>{S.notif=null;render();},2800);
+  render();
+}
+
+const isCaja1=()=>S.cashier==='Caja 1';
+
+// ── Carrito ────────────────────────────────────────────────────
+function cartTotal(){return S.cart.reduce((t,c)=>t+c.price*c.qty,0);}
+function cartProfit(){return S.cart.reduce((t,c)=>t+(c.price-c.cost)*c.qty,0);}
+function cartChange(){return S.paid?Math.max(0,parseFloat(S.paid)-cartTotal()):0;}
+
+function addByBarcode(code){
+  if(!code||!code.trim())return;
+  const p=S.prods.find(p=>p.barcode===code.trim());
+  if(!p){notify('No encontrado: '+code,'err');return;}
+  if(p.stock<=0){notify('Sin stock: '+p.name,'err');return;}
+  const ex=S.cart.find(c=>c.barcode===p.barcode);
+  if(ex){if(ex.qty>=p.stock){notify('Sin suficiente existencia','err');return;}
+    S.cart=S.cart.map(c=>c.barcode===p.barcode?{...c,qty:c.qty+1}:c);
+  }else S.cart=[...S.cart,{...p,qty:1}];
+  notify('✓ '+p.name);
+}
+
+function finalizeSale(){
+  if(!S.cart.length)return;
+  const total=cartTotal(),profit=cartProfit();
+  const sale={
+    id:'s'+Date.now(),date:todayStr(),timestamp:Date.now(),
+    items:[...S.cart],total,profit,
+    paid:parseFloat(S.paid)||total,change:cartChange(),
+    payMethod:S.payMethod,cashierName:S.cashier,
+    cancelled:false,cancelledBy:null,cancelReason:null,
+  };
+  const ns=[...S.sales,sale];setSales(ns);S.sales=ns;
+  const np=S.prods.map(p=>{const it=S.cart.find(c=>c.barcode===p.barcode);return it?{...p,stock:p.stock-it.qty}:p;});
+  setProds(np);S.prods=np;
+  S.cart=[];S.paid='';S.payMethod='cash';S.receipt=sale;render();
+}
+
+function cancelSale(sale,reason){
+  const np=S.prods.map(p=>{const it=sale.items.find(i=>i.barcode===p.barcode);return it?{...p,stock:p.stock+it.qty}:p;});
+  setProds(np);S.prods=np;
+  const ns=S.sales.map(s=>s.id===sale.id?{...s,cancelled:true,cancelledBy:S.cashier,cancelReason:reason}:s);
+  setSales(ns);S.sales=ns;
+  S.cancelModal=null;notify('⛔ Venta cancelada — stock restaurado');
+}
+
+function addProdOrUpdate(barcode){
+  // Si el producto ya existe, abre modal de actualizar existencia
+  const p=S.prods.find(p=>p.barcode===barcode);
+  if(p){S.updateStockModal=p;render();return;}
+  // Si no existe, abre modal de agregar con barcode prellenado
+  S.newP={barcode,name:'',cat:'',cost:'',price:'',stock:'',min:'5'};
+  S.addModal=true;render();
+}
+
+function updateStock(barcode,qty){
+  S.prods=S.prods.map(p=>p.barcode===barcode?{...p,stock:parseInt(qty)||0}:p);
+  setProds(S.prods);
+  S.updateStockModal=null;
+  notify('✓ Existencia actualizada');render();
+}
+
+function filterPeriod(sales,period){
+  const now=new Date();
+  return sales.filter(v=>{
+    const d=new Date(v.timestamp);
+    if(period==='day')return v.date===todayStr();
+    if(period==='week'){const s=new Date(now);s.setDate(now.getDate()-now.getDay());s.setHours(0,0,0,0);return d>=s;}
+    if(period==='month')return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear();
+    if(period==='year')return d.getFullYear()===now.getFullYear();
+    return true;
+  });
+}
+
+// ── Ticket de impresión física (80mm) ─────────────────────────
+function printTicket(sale){
+  const pm={cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia'}[sale.payMethod]||'—';
+  const lines=sale.items.map(i=>`${i.name.substring(0,20).padEnd(20,' ')} ${String(i.qty).padStart(2,' ')}x${fmt(i.price).padStart(7,' ')} ${fmt(i.price*i.qty).padStart(8,' ')}`).join('\n');
+  const sep='─'.repeat(42);
+  const ticket=`
+${CFG.storeName.toUpperCase()}
+${CFG.address}
+Tel: ${CFG.phone}
+${sep}
+TICKET DE COMPRA
+${new Date(sale.timestamp).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}
+Caja: ${sale.cashierName}
+${sep}
+PRODUCTO             CANT  PRECIO    TOTAL
+${lines}
+${sep}
+SUBTOTAL:                        ${fmt(sale.total).padStart(8,' ')}
+FORMA DE PAGO: ${pm}
+${sale.payMethod==='cash'?`PAGÓ:                            ${fmt(sale.paid).padStart(8,' ')}\nCAMBIO:                          ${fmt(sale.change).padStart(8,' ')}`:''}
+${sep}
+GANANCIA DE ESTA VENTA: ${fmt(sale.profit)}
+${sep}
+¡Gracias por su compra!
+Quejas: ${CFG.complaints}
+${sep}
+`;
+  const el=G('ticket-print');
+  el.style.display='block';
+  el.innerHTML='<pre style="font-size:11px;font-family:Courier New,monospace;white-space:pre;color:#000;">'+ticket+'</pre>';
+  window.print();
+  setTimeout(()=>{el.style.display='none';},1000);
+}
+
+// ── WhatsApp ticket (formato ticket real) ─────────────────────
+function sendWA(sale,num){
+  const pm={cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia'}[sale.payMethod]||'—';
+  const sep='══════════════════════';
+  const lines=sale.items.map(i=>`${i.name}\n  ${i.qty} pza × ${fmt(i.price)} = *${fmt(i.price*i.qty)}*`).join('\n');
+  const msg=
+`🏪 *${CFG.storeName}*
+${CFG.address}
+📞 ${CFG.phone}
+${sep}
+🧾 *TICKET DE COMPRA*
+📅 ${new Date(sale.timestamp).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'})}
+🏷️ ${sale.cashierName}
+${sep}
+${lines}
+${sep}
+💰 *TOTAL: ${fmt(sale.total)}*
+💳 Pago: ${pm}${sale.payMethod==='cash'?`
+💵 Pagó: ${fmt(sale.paid)}
+🔄 Cambio: ${fmt(sale.change)}`:''}
+${sep}
+✅ ¡Gracias por su compra!
+📧 Quejas: ${CFG.complaints}`;
+  window.open(`https://wa.me/52${num.replace(/\D/g,'').slice(0,10)}?text=${encodeURIComponent(msg)}`,'_blank');
+  S.whatsModal=null;S.whatsNum='';S.receipt=null;render();
+}
+
+function printReport(sales,label,period,cajaName){
+  const active=sales.filter(s=>!s.cancelled);
+  const total=active.reduce((s,v)=>s+v.total,0),profit=active.reduce((s,v)=>s+v.profit,0);
+  const byM={cash:0,card:0,transfer:0};active.forEach(s=>{byM[s.payMethod]=(byM[s.payMethod]||0)+s.total;});
+  const byCaja={};active.forEach(s=>{const n=s.cashierName||'Caja 1';if(!byCaja[n])byCaja[n]={rev:0,profit:0,count:0};byCaja[n].rev+=s.total;byCaja[n].profit+=s.profit;byCaja[n].count++;});
+  const rows=sales.map(s=>`<tr style="${s.cancelled?'background:#fff5f5;text-decoration:line-through;color:#bbb':''}">
+    <td>${new Date(s.timestamp).toLocaleString('es-MX',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</td>
+    <td>${s.cashierName||'Caja 1'}</td>
+    <td style="font-size:10px">${s.items.map(i=>`${i.name}×${i.qty}`).join(', ')}</td>
+    <td>${{cash:'Efectivo',card:'Tarjeta',transfer:'Transferencia'}[s.payMethod]||'—'}</td>
+    <td style="text-align:right">$${s.total.toFixed(2)}</td>
+    <td style="text-align:right;color:${s.cancelled?'#ccc':'#007744'}">$${s.profit.toFixed(2)}</td>
+    <td>${s.cancelled?'<b style="color:#c00">CANCELADA</b>':'✓'}</td>
+  </tr>`).join('');
+  const cajaRows=Object.entries(byCaja).map(([name,d])=>`<tr><td><b>${name}</b></td><td>${d.count}</td><td>$${d.rev.toFixed(2)}</td><td style="color:#007744">$${d.profit.toFixed(2)}</td></tr>`).join('');
+  const w=window.open('','_blank','width=980,height=720');if(!w)return;
+  w.document.write(`<!DOCTYPE html><html><head><meta charset="utf-8"/><title>${CFG.storeName} — ${label}</title>
+  <style>body{font-family:Arial,sans-serif;font-size:12px;padding:24px;max-width:960px;margin:0 auto;}
+  h1{font-size:20px;}h2{color:#666;font-size:13px;margin:0 0 16px;}
+  .g{display:flex;gap:10px;margin-bottom:14px;flex-wrap:wrap;}
+  .b{border:1px solid #e0e0e0;border-radius:8px;padding:10px 16px;flex:1;text-align:center;min-width:100px;}
+  .b span{font-size:10px;color:#888;display:block;}.b b{font-size:20px;display:block;margin-top:3px;}
+  .gr b{color:#007744;}.bl b{color:#0055cc;}.rd b{color:#cc0000;}
+  table{width:100%;border-collapse:collapse;margin-bottom:20px;}
+  th{background:#f5f5f5;padding:7px 8px;text-align:left;border-bottom:2px solid #ddd;font-size:11px;}
+  td{padding:5px 8px;border-bottom:1px solid #eee;font-size:11px;}
+  h3{font-size:14px;margin:16px 0 8px;}
+  @media print{body{padding:0;}}</style></head><body>
+  <h1>📊 ${label}${cajaName?` · ${cajaName}`:' · General'}</h1>
+  <h2>${CFG.storeName} · ${CFG.ownerName} · ${period}</h2>
+  <div class="g"><div class="b"><span>Ventas</span><b>${active.length}</b></div>
+  <div class="b bl"><span>Ingresos</span><b>$${total.toFixed(2)}</b></div>
+  <div class="b gr"><span>Ganancia</span><b>$${profit.toFixed(2)}</b></div>
+  <div class="b rd"><span>Canceladas</span><b>${sales.filter(s=>s.cancelled).length}</b></div></div>
+  <div class="g"><div class="b"><span>💵 Efectivo</span><b>$${(byM.cash||0).toFixed(2)}</b></div>
+  <div class="b"><span>💳 Tarjeta</span><b>$${(byM.card||0).toFixed(2)}</b></div>
+  <div class="b"><span>📲 Transferencia</span><b>$${(byM.transfer||0).toFixed(2)}</b></div></div>
+  ${Object.keys(byCaja).length>1?`<h3>Por caja</h3><table><thead><tr><th>Caja</th><th>Ventas</th><th>Ingresos</th><th>Ganancia</th></tr></thead><tbody>${cajaRows}</tbody></table>`:''}
+  <h3>Detalle</h3>
+  <table><thead><tr><th>Hora</th><th>Caja</th><th>Productos</th><th>Pago</th><th>Total</th><th>Ganancia</th><th>Estado</th></tr></thead>
+  <tbody>${rows}</tbody></table>
+  <div style="font-size:10px;color:#aaa;text-align:center;margin-top:16px;">Punto de Venta Impulso · ${new Date().toLocaleString('es-MX')}</div>
+  </body></html>`);
+  w.document.close();setTimeout(()=>w.print(),500);
+}
+
+// ── Escáner ────────────────────────────────────────────────────
+let scanStream=null,scanIv=null;
+function stopScanner(){clearInterval(scanIv);scanIv=null;if(scanStream){scanStream.getTracks().forEach(t=>t.stop());scanStream=null;}}
+async function startScanner(cb){
+  stopScanner();const v=G('sv');if(!v)return;
+  try{
+    scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});
+    v.srcObject=scanStream;
+    if('BarcodeDetector' in window){
+      const det=new BarcodeDetector({formats:['ean_13','ean_8','code_128','upc_a','upc_e']});
+      scanIv=setInterval(async()=>{if(v.readyState===4){const c=await det.detect(v).catch(()=>[]);if(c.length){stopScanner();cb(c[0].rawValue);}}},400);
+    }
+  }catch(e){}
+}
+
+// ── Tema ───────────────────────────────────────────────────────
+function D(){return S.dark
+  ?{bg:'#080812',bg2:'#0e0e1c',card:'rgba(255,255,255,0.04)',brd:'rgba(255,255,255,0.08)',fg:'#fff',sub:'#666',inp:'rgba(255,255,255,0.06)',inpB:'rgba(255,255,255,0.1)',hdr:'rgba(8,8,18,0.85)',nav:'rgba(8,8,18,0.9)',hvr:'rgba(0,229,160,0.08)',sb:'#0b0b1a'}
+  :{bg:'#f4f6fb',bg2:'#eef0f8',card:'#fff',brd:'#e4e8f0',fg:'#111',sub:'#888',inp:'#f8f9fc',inpB:'#dde1ea',hdr:'rgba(244,246,251,0.95)',nav:'rgba(244,246,251,0.95)',hvr:'rgba(0,180,130,0.06)',sb:'#fff'};}
+const crd=()=>{const d=D();return`background:${d.card};border:1px solid ${d.brd};border-radius:14px;padding:16px;margin-bottom:12px;`;};
+const IS=()=>{const d=D();return`padding:11px 14px;border-radius:10px;border:1px solid ${d.inpB};background:${d.inp};color:${d.fg};font-size:15px;width:100%;box-sizing:border-box;outline:none;font-family:'DM Sans',sans-serif;`;};
+const BS=(bg='#00e5a0',fg='#000')=>`padding:12px 20px;background:${bg};color:${fg};border:none;border-radius:10px;font-weight:700;cursor:pointer;font-size:14px;font-family:'DM Sans',sans-serif;`;
+const TG=c=>`padding:3px 10px;border-radius:20px;background:${c}22;color:${c};font-size:11px;font-weight:700;display:inline-block;`;
+const lowStock=()=>S.prods.filter(p=>p.stock<=p.min);
+const todayPrf=()=>S.sales.filter(s=>s.date===todayStr()&&!s.cancelled).reduce((s,v)=>s+v.profit,0);
+
+// ── Input contraseña con ojo ──────────────────────────────────
+function passInput(id,showKey,placeholder,onEnter='',extraStyle=''){
+  const d=D();const show=S.showPass[showKey];
+  return`<div style="position:relative;">
+    <input id="${id}" type="${show?'text':'password'}" placeholder="${placeholder}"
+      style="${IS()}padding-right:48px;${extraStyle}"
+      ${onEnter?`onkeydown="if(event.key==='Enter'){${onEnter}}"`:''}/>
+    <button type="button" onclick="S.showPass.${showKey}=!S.showPass.${showKey};render()"
+      style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:18px;color:${d.sub};padding:4px;">
+      ${show?'🙈':'👁️'}
+    </button>
+  </div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOGIN
+// ═══════════════════════════════════════════════════════════════
+function rLogin(){
+  const d=D();
+  if(S.loginStep==='pin'){return`<div style="min-height:100vh;background:${S.dark?'linear-gradient(135deg,#050510,#0d0d25)':d.bg};display:flex;align-items:center;justify-content:center;padding:20px;">
+    <div style="width:100%;max-width:380px;">
+      <div style="text-align:center;margin-bottom:28px;">
+        <div style="width:60px;height:60px;background:linear-gradient(135deg,#00e5a0,#00b4d8);border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:28px;margin:0 auto 12px;">🏪</div>
+        <div style="color:${d.fg};font-size:20px;font-weight:900;">${CFG.storeName}</div>
+      </div>
+      <div style="background:${d.card};border:1px solid ${d.brd};border-radius:18px;padding:26px;">
+        <div style="color:${d.fg};font-weight:700;font-size:16px;margin-bottom:16px;">Acceso con PIN</div>
+        <div style="margin-bottom:12px;">
+          <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Selecciona tu caja</div>
+          <select id="pin-caja" style="${IS()}"><option value="Caja 2">Caja 2</option><option value="Caja 3">Caja 3</option></select>
+        </div>
+        <div style="margin-bottom:16px;">
+          <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">PIN de acceso</div>
+          ${passInput('pin-input','pin','••••','doLoginPin()',`font-size:24px;letter-spacing:6px;text-align:center;`)}
+        </div>
+        <div id="pin-err" style="display:none;color:#ff6b6b;font-size:12px;padding:8px 12px;background:rgba(255,107,107,0.08);border-radius:8px;margin-bottom:12px;"></div>
+        <button onclick="doLoginPin()" class="btn-primary" style="width:100%;padding:14px;font-size:15px;">Entrar →</button>
+        <button onclick="S.loginStep='main';render()" style="width:100%;padding:10px;background:none;border:none;color:${d.sub};cursor:pointer;margin-top:8px;font-size:13px;">← Volver</button>
+      </div>
+    </div></div>`;}
+  return`<div style="min-height:100vh;background:${S.dark?'linear-gradient(135deg,#050510,#0d0d25,#050515)':d.bg};display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div style="width:100%;max-width:420px;">
+    <div style="text-align:center;margin-bottom:32px;">
+      <div style="width:72px;height:72px;background:linear-gradient(135deg,#00e5a0,#00b4d8);border-radius:20px;display:flex;align-items:center;justify-content:center;font-size:36px;margin:0 auto 14px;box-shadow:0 12px 40px rgba(0,229,160,0.35);">🏪</div>
+      <div style="color:${d.fg};font-size:26px;font-weight:900;">${CFG.storeName}</div>
+      <div style="color:#00e5a0;font-size:11px;font-weight:700;letter-spacing:5px;margin-top:5px;">PUNTO DE VENTA IMPULSO</div>
+      <div style="color:${d.sub};font-size:12px;margin-top:6px;">${CFG.ownerName}</div>
+    </div>
+    <div style="background:${d.card};border:1px solid ${d.brd};border-radius:20px;padding:28px;margin-bottom:12px;">
+      <div style="color:${d.fg};font-weight:700;font-size:17px;margin-bottom:18px;">Caja 1 — Iniciar sesión</div>
+      <div style="display:flex;flex-direction:column;gap:12px;">
+        <div>
+          <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Correo electrónico</div>
+          <input id="l-email" type="email" value="${CFG.email}" style="${IS()}" onkeydown="if(event.key==='Enter')G('l-pass').focus()"/>
+        </div>
+        <div>
+          <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Contraseña</div>
+          ${passInput('l-pass','login','••••••••','doLogin1()')}
+        </div>
+        <div id="l-err" style="display:none;color:#ff6b6b;font-size:12px;padding:8px 12px;background:rgba(255,107,107,0.08);border-radius:8px;"></div>
+        <button onclick="doLogin1()" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:4px;">Entrar como Caja 1 →</button>
+      </div>
+    </div>
+    <div style="background:${d.card};border:1px solid ${d.brd};border-radius:14px;padding:16px;margin-bottom:12px;">
+      <div style="color:${d.sub};font-size:12px;margin-bottom:10px;font-weight:600;">¿Eres Caja 2 o Caja 3?</div>
+      <button onclick="S.loginStep='pin';render()" style="${BS(S.dark?'#1a1a30':'#f0f2ff',S.dark?'#aaa':'#555')};width:100%;padding:12px;">🔑 Entrar con PIN →</button>
+    </div>
+    <div style="text-align:center;">
+      <button onclick="S.dark=!S.dark;render()" style="background:none;border:none;color:${d.sub};cursor:pointer;font-size:13px;padding:8px;">${S.dark?'☀️ Modo día':'🌙 Modo noche'}</button>
+    </div>
+  </div></div>`;
+}
+
+function doLogin1(){
+  const email=G('l-email')?.value||'',pass=G('l-pass')?.value||'',e=G('l-err');
+  if(email!==CFG.email||pass!==CFG.password){if(e){e.style.display='block';e.textContent='Correo o contraseña incorrectos.';}return;}
+  S.cashier='Caja 1';S.prods=getProds();S.sales=getSales();S.cart=[];
+  S.screen=CFG.blocked?'blocked':'pos';render();
+}
+
+function doLoginPin(){
+  const pin=G('pin-input')?.value||'',caja=G('pin-caja')?.value||'Caja 2',e=G('pin-err');
+  const ok=(caja==='Caja 2'&&pin===CFG.pin2)||(caja==='Caja 3'&&pin===CFG.pin3);
+  if(!ok){if(e){e.style.display='block';e.textContent='PIN incorrecto.';}return;}
+  S.cashier=caja;S.prods=getProds();S.sales=getSales();S.cart=[];
+  S.screen=CFG.blocked?'blocked':'pos';S.loginStep='main';render();
+}
+
+function doLogout(){S.screen='login';S.cashier=null;S.tab='sell';S.cart=[];S.searchQ='';S.invSearchQ='';render();}
+
+// ═══════════════════════════════════════════════════════════════
+// BLOQUEADO
+// ═══════════════════════════════════════════════════════════════
+function rBlocked(){return`<div style="min-height:100vh;background:#0a0a15;display:flex;align-items:center;justify-content:center;padding:24px;">
+  <div style="text-align:center;max-width:340px;">
+    <div style="font-size:72px;margin-bottom:20px;">🔒</div>
+    <div style="color:#ff6b6b;font-size:24px;font-weight:900;margin-bottom:8px;">Acceso suspendido</div>
+    <div style="color:#555;font-size:14px;margin-bottom:6px;font-weight:600;">${CFG.storeName}</div>
+    <div style="color:#444;font-size:13px;line-height:1.8;margin-bottom:32px;">Tu suscripción ha sido suspendida.<br/>Tu información está completamente segura.<br/>Contacta a soporte para reactivar.</div>
+    <a href="https://wa.me/521234567890?text=Hola,%20necesito%20reactivar%20mi%20PVI%20-%20${encodeURIComponent(CFG.storeName)}"
+      target="_blank" style="display:inline-block;padding:14px 28px;background:#25D366;color:#fff;border-radius:12px;font-weight:700;text-decoration:none;margin-bottom:16px;">📲 Contactar soporte</a><br/>
+    <button onclick="doLogout()" style="background:none;border:none;color:#444;cursor:pointer;font-size:13px;text-decoration:underline;margin-top:8px;">Cerrar sesión</button>
+  </div></div>`;}
+
+// ═══════════════════════════════════════════════════════════════
+// VENDER
+// ═══════════════════════════════════════════════════════════════
+function htmlSell(){
+  const d=D();const T=cartTotal(),P=cartProfit(),C=cartChange();
+  // Solo ventas de esta caja
+  const myTodaySales=S.sales.filter(s=>s.date===todayStr()&&s.cashierName===S.cashier);
+  return`
+  <div style="${crd()}display:flex;gap:8px;">
+    <input id="bc-main" placeholder="Código de barras — escribe o escanea"
+      onkeydown="if(event.key==='Enter'&&this.value.trim()){addByBarcode(this.value.trim());this.value='';}"
+      style="${IS()}flex:1;font-family:'DM Mono',monospace;font-size:16px;"/>
+    <button onclick="S.scanner=true;render()" style="${BS(S.dark?'#1a3a2a':'#e0f5ed')};padding:11px 14px;font-size:22px;color:#00e5a0;" title="Escáner de cámara">📷</button>
+    <button onclick="addByBarcode(G('bc-main').value.trim());G('bc-main').value='';" style="${BS(S.dark?'#1e1e38':'#ebebf5')};padding:11px 16px;color:${d.sub};font-size:13px;">+ Agregar</button>
+  </div>
+  <div style="${crd()}">
+    <input id="search-inp" placeholder="🔍 Buscar producto por nombre completo..."
+      oninput="S.searchQ=this.value;renderSearch()" value="${S.searchQ}" style="${IS()}"/>
+    <div id="search-res" style="margin-top:8px;max-height:220px;overflow-y:auto;"></div>
+  </div>
+  ${S.cart.length>0?`
+  <div style="${crd()}">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
+      <span style="color:${d.sub};font-size:13px;font-weight:700;">🛒 Carrito (${S.cart.length})</span>
+      <button onclick="S.cart=[];S.paid='';render()" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:12px;">Vaciar ✕</button>
+    </div>
+    ${S.cart.map(it=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid ${d.brd};">
+      <div style="flex:1;min-width:0;"><div style="font-size:14px;font-weight:600;color:${d.fg};">${it.name}</div><div style="font-size:12px;color:${d.sub};">${fmt(it.price)} c/u</div></div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <button onclick="CQ('${it.barcode}',-1)" style="width:28px;height:28px;border:1px solid ${d.brd};background:transparent;color:${d.fg};border-radius:7px;cursor:pointer;font-weight:700;font-size:16px;">−</button>
+        <span style="min-width:28px;text-align:center;font-weight:800;font-size:15px;color:${d.fg};">${it.qty}</span>
+        <button onclick="CQ('${it.barcode}',1)" style="width:28px;height:28px;border:1px solid #00e5a0;background:transparent;color:#00e5a0;border-radius:7px;cursor:pointer;font-weight:700;font-size:16px;">+</button>
+      </div>
+      <div style="min-width:64px;text-align:right;font-weight:700;color:#00e5a0;font-size:14px;">${fmt(it.price*it.qty)}</div>
+      <button onclick="RC('${it.barcode}')" style="background:none;border:none;color:#ff6b6b;cursor:pointer;font-size:20px;line-height:1;padding:0 4px;">×</button>
+    </div>`).join('')}
+    <div style="margin:14px 0;">
+      <div style="color:${d.sub};font-size:12px;margin-bottom:8px;font-weight:600;">FORMA DE PAGO</div>
+      <div style="display:flex;gap:8px;">
+        ${PAYMENTS.map(m=>`<button onclick="S.payMethod='${m.id}';render()" style="flex:1;padding:10px 6px;border-radius:10px;border:2px solid ${S.payMethod===m.id?'#00e5a0':d.brd};background:${S.payMethod===m.id?(S.dark?'rgba(0,229,160,0.12)':'rgba(0,180,130,0.08)'):'transparent'};color:${S.payMethod===m.id?'#00e5a0':d.sub};cursor:pointer;font-size:12px;font-weight:${S.payMethod===m.id?700:400};display:flex;flex-direction:column;align-items:center;gap:3px;font-family:'DM Sans',sans-serif;"><span style="font-size:20px;">${m.icon}</span>${m.label}</button>`).join('')}
+      </div>
+    </div>
+    <div style="border-top:1px solid ${d.brd};padding-top:14px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:6px;"><span style="color:${d.sub};">Total</span><span style="font-weight:900;font-size:22px;color:${d.fg};">${fmt(T)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:14px;"><span style="color:${d.sub};font-size:13px;">Ganancia estimada</span><span style="color:#00e5a0;font-weight:700;font-size:15px;">${fmt(P)}</span></div>
+      ${S.payMethod==='cash'?`
+      <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Pago del cliente</div>
+      <input id="paid-inp" type="number" inputmode="decimal"
+        placeholder="${fmt(T)}"
+        style="${IS()}margin-bottom:10px;font-size:18px;"
+        oninput="S.paid=this.value;renderChange()"
+        onkeydown="if(event.key==='Enter')finalizeSale()"/>
+      <div id="change-box" style="display:none;flex;justify-content:space-between;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);border-radius:10px;padding:10px 14px;margin-bottom:10px;">
+        <span style="color:#00e5a0;font-size:14px;font-weight:600;">Cambio</span>
+        <span id="change-val" style="color:#00e5a0;font-weight:900;font-size:18px;"></span>
+      </div>`:''}
+      <button onclick="finalizeSale()" class="btn-primary" style="width:100%;padding:16px;font-size:17px;">💳 Cobrar ${fmt(T)}</button>
+    </div>
+  </div>`:`
+  <div style="text-align:center;padding:60px 20px;color:${d.sub};">
+    <div style="font-size:60px;margin-bottom:14px;">🛒</div>
+    <div style="font-size:16px;font-weight:600;">Carrito vacío</div>
+    <div style="font-size:13px;margin-top:6px;color:${S.dark?'#2a2a4a':'#ccc'};">Escanea un código o busca por nombre</div>
+  </div>`}
+  ${myTodaySales.length>0?`
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:13px;font-weight:700;margin-bottom:12px;">🕐 Mis ventas de hoy — ${S.cashier}</div>
+    ${myTodaySales.slice(-6).reverse().map(s=>`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;padding-bottom:10px;border-bottom:1px solid ${d.brd};opacity:${s.cancelled?.45:1};">
+      <div style="flex:1;min-width:0;">
+        <div style="font-size:13px;font-weight:600;color:${d.fg};white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${s.items.map(i=>i.name).join(', ')}</div>
+        <div style="font-size:11px;color:${d.sub};">${new Date(s.timestamp).toLocaleTimeString('es-MX',{hour:'2-digit',minute:'2-digit'})} · ${PAYMENTS.find(m=>m.id===s.payMethod)?.icon||''}</div>
+      </div>
+      <div style="font-weight:700;font-size:14px;color:${s.cancelled?'#ff6b6b':'#00e5a0'};flex-shrink:0;">${s.cancelled?'CANCELADA':fmt(s.total)}</div>
+      ${!s.cancelled?`<button onclick="S.cancelModal=${JSON.stringify(s).replace(/"/g,'&quot;')};render()" style="padding:5px 10px;background:rgba(255,107,107,0.1);border:1px solid rgba(255,107,107,0.3);color:#ff6b6b;border-radius:7px;cursor:pointer;font-size:11px;font-weight:700;flex-shrink:0;">⛔</button>`:''}
+    </div>`).join('')}
+  </div>`:''}`;
+}
+
+// ── Actualizar cambio sin re-render completo ─────────────────
+function renderChange(){
+  const paid=parseFloat(G('paid-inp')?.value||0);
+  const total=cartTotal();
+  const box=G('change-box'),val=G('change-val');
+  if(!box||!val)return;
+  if(paid>=total&&paid>0){
+    box.style.display='flex';
+    val.textContent=fmt(Math.max(0,paid-total));
+  } else box.style.display='none';
+}
+
+// ── Buscar productos sin re-render ───────────────────────────
+function renderSearch(){
+  const d=D();const q=S.searchQ;
+  const el=G('search-res');if(!el)return;
+  if(!q){el.innerHTML='';return;}
+  const r=S.prods.filter(p=>p.name.toLowerCase().includes(q.toLowerCase())).slice(0,8);
+  el.innerHTML=r.map(p=>`
+  <div onclick="addByBarcode('${p.barcode}');S.searchQ='';G('search-inp').value='';G('search-res').innerHTML='';"
+    style="padding:10px 12px;border-radius:9px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;"
+    onmouseover="this.style.background='${d.hvr}'" onmouseout="this.style.background='transparent'">
+    <div>
+      <div style="font-size:14px;font-weight:600;color:${d.fg};">${p.name}</div>
+      <div style="font-size:11px;color:${d.sub};">Stock: ${p.stock} · ${p.cat}</div>
+    </div>
+    <div style="color:#00e5a0;font-weight:700;font-size:15px;">${fmt(p.price)}</div>
+  </div>`).join('');
+}
+
+// ═══════════════════════════════════════════════════════════════
+// INVENTARIO
+// ═══════════════════════════════════════════════════════════════
+function htmlInv(){
+  const d=D();const ls=lowStock();
+  const q=S.invSearchQ;
+  const fil=S.prods.filter(p=>!q||p.name.toLowerCase().includes(q.toLowerCase())||p.barcode.includes(q)||p.cat.toLowerCase().includes(q.toLowerCase()));
+  return`
+  <!-- Barra de búsqueda con escáner -->
+  <div style="${crd()}display:flex;gap:8px;padding:12px;">
+    <input id="inv-search" value="${q}" oninput="S.invSearchQ=this.value;render()"
+      placeholder="🔍 Buscar por nombre, código o categoría..."
+      style="${IS()}flex:1;"/>
+    <button onclick="S.invScannerOpen=true;render()"
+      style="${BS(S.dark?'#1a3a2a':'#e0f5ed')};padding:11px 14px;font-size:22px;color:#00e5a0;" title="Escanear código para buscar">📷</button>
+    <button onclick="S.newP={barcode:'',name:'',cat:'',cost:'',price:'',stock:'',min:'5'};S.addModal=true;render()"
+      class="btn-primary" style="padding:11px 16px;white-space:nowrap;font-size:13px;">+ Nuevo</button>
+  </div>
+
+  <!-- Alertas de stock bajo — clic para ver detalle -->
+  ${ls.length>0?`
+  <div style="border:1px solid #ff4444;border-radius:12px;padding:14px;margin-bottom:12px;background:rgba(255,68,68,0.06);">
+    <div style="color:#ff4444;font-weight:700;font-size:13px;margin-bottom:10px;">🔴 ${ls.length} producto(s) con stock bajo — toca para ver detalle</div>
+    ${ls.map(p=>`
+    <div onclick="S.prodDetailModal='${p.barcode}';render()"
+      style="display:flex;justify-content:space-between;align-items:center;font-size:12px;margin-bottom:6px;padding:7px 10px;border-radius:8px;cursor:pointer;border:1px solid rgba(255,68,68,0.2);"
+      onmouseover="this.style.background='rgba(255,68,68,0.08)'" onmouseout="this.style.background='transparent'">
+      <div>
+        <div style="font-weight:600;color:#ff4444;">${p.name}</div>
+        <div style="color:${d.sub};font-size:11px;">${p.barcode}</div>
+      </div>
+      <div style="text-align:right;">
+        <div style="color:${p.stock===0?'#ff4444':'#ff8844'};font-weight:700;">${p.stock===0?'AGOTADO':`${p.stock} pzas`}</div>
+        <div style="color:${d.sub};font-size:10px;">mín: ${p.min}</div>
+      </div>
+    </div>`).join('')}
+  </div>`:''}
+
+  <div style="color:${d.sub};font-size:12px;margin-bottom:10px;">${fil.length} de ${S.prods.length} productos</div>
+
+  ${fil.map(p=>`
+  <div style="${crd()}padding:12px 14px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div style="flex:1;min-width:0;cursor:pointer;" onclick="S.prodDetailModal='${p.barcode}';render()">
+        <div style="font-weight:700;font-size:14px;color:${d.fg};margin-bottom:2px;">${p.name}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:10px;color:${d.sub};">${p.barcode} · ${p.cat}</div>
+      </div>
+      <div style="${TG(p.stock===0?'#ff4444':p.stock<=p.min?'#ff8844':'#00e5a0')};margin-left:8px;">${p.stock} pzas</div>
+    </div>
+    <div style="display:flex;gap:12px;font-size:12px;margin-bottom:12px;">
+      <span style="color:${d.sub};">Compra: <b style="color:${d.fg};">${fmt(p.cost)}</b></span>
+      <span style="color:${d.sub};">Venta: <b style="color:#00e5a0;">${fmt(p.price)}</b></span>
+      <span style="color:${d.sub};">Gan: <b style="color:#00b4d8;">${fmt(p.price-p.cost)}</b></span>
+    </div>
+    <!-- Botón actualizar existencia -->
+    <button onclick="S.updateStockModal='${p.barcode}';render()"
+      style="${BS(S.dark?'#1a1a30':'#f0f2ff',S.dark?'#aaa':'#555')};padding:8px 14px;font-size:12px;width:100%;">
+      📦 Actualizar existencia (actual: ${p.stock} pzas)
+    </button>
+  </div>`).join('')}
+
+  <!-- Modal escáner inventario -->
+  ${S.invScannerOpen?`
+  <div style="position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;">
+    <div style="color:#00e5a0;font-size:14px;text-align:center;font-weight:600;">📷 Escanea el código de barras para buscar o agregar</div>
+    <div style="position:relative;width:300px;height:220px;border-radius:16px;overflow:hidden;border:2px solid #00e5a0;">
+      <video id="sv" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+      <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,229,160,0.9);animation:scan 2s ease-in-out infinite;"></div>
+    </div>
+    <div style="display:flex;gap:8px;width:100%;max-width:360px;">
+      <input id="isv-manual" placeholder="O escribe el código aquí" autofocus
+        onkeydown="if(event.key==='Enter'&&this.value.trim())invScanDetect(this.value.trim());"
+        style="${IS()}flex:1;font-family:'DM Mono',monospace;font-size:16px;"/>
+      <button onclick="invScanDetect(G('isv-manual').value.trim())" class="btn-primary" style="padding:11px 20px;">OK</button>
+    </div>
+    <button onclick="stopScanner();S.invScannerOpen=false;render()" style="padding:9px 28px;background:transparent;color:#666;border:1px solid #333;border-radius:8px;cursor:pointer;font-size:13px;">Cancelar</button>
+  </div>`:''
+  }
+  ${(()=>{if(!S.invScannerOpen)return'';setTimeout(()=>startScanner(invScanDetect),100);return '';})()}
+
+  <!-- Modal agregar producto -->
+  ${S.addModal?htmlAddModal():''}
+
+  <!-- Modal actualizar existencia -->
+  ${S.updateStockModal?htmlUpdateStockModal():''}
+
+  <!-- Modal detalle producto -->
+  ${S.prodDetailModal?htmlProdDetail():''}`;
+}
+
+function invScanDetect(code){
+  stopScanner();S.invScannerOpen=false;
+  // Busca el producto
+  const p=S.prods.find(p=>p.barcode===code.trim());
+  if(p){
+    // Producto existe: abrir modal actualizar existencia
+    S.updateStockModal=code.trim();
+    notify('✓ Producto encontrado: '+p.name);
+  } else {
+    // Producto nuevo: abrir modal agregar con código prellenado
+    S.newP={barcode:code.trim(),name:'',cat:'',cost:'',price:'',stock:'',min:'5'};
+    S.addModal=true;
+    notify('Nuevo producto. Completa la información.');
+  }
+  render();
+}
+
+function htmlUpdateStockModal(){
+  const d=D();
+  const barcode=S.updateStockModal;
+  const p=S.prods.find(p=>p.barcode===barcode);
+  if(!p)return'';
+  return`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(0,180,216,0.4);border-radius:20px;padding:26px;width:100%;max-width:400px;">
+    <div style="font-weight:900;font-size:18px;color:${d.fg};margin-bottom:4px;">📦 Actualizar existencia</div>
+    <div style="color:${d.sub};font-size:13px;margin-bottom:20px;">${p.name}</div>
+    <div style="background:${S.dark?'rgba(255,255,255,0.03)':'#f8f8f8'};border:1px solid ${d.brd};border-radius:10px;padding:12px;margin-bottom:16px;font-size:13px;">
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:${d.sub};">Código:</span><span style="font-family:'DM Mono',monospace;color:${d.fg};">${p.barcode}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:${d.sub};">Precio de compra:</span><span style="color:${d.fg};">${fmt(p.cost)}</span></div>
+      <div style="display:flex;justify-content:space-between;margin-bottom:4px;"><span style="color:${d.sub};">Precio de venta:</span><span style="color:#00e5a0;font-weight:700;">${fmt(p.price)}</span></div>
+      <div style="display:flex;justify-content:space-between;"><span style="color:${d.sub};">Existencia actual:</span><span style="color:${p.stock<=p.min?'#ff4444':'#00e5a0'};font-weight:700;">${p.stock} pzas</span></div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Nueva cantidad en existencia</div>
+      <input id="new-stock-qty" type="number" min="0" value="${p.stock}"
+        placeholder="0" style="${IS()}font-size:22px;text-align:center;font-weight:700;"
+        onkeydown="if(event.key==='Enter')updateStock('${p.barcode}',this.value)"/>
+      <div style="color:${d.sub};font-size:11px;margin-top:6px;">💡 Escribe el total actual en tu almacén</div>
+    </div>
+    <div style="display:flex;gap:10px;">
+      <button onclick="S.updateStockModal=null;render()" style="${BS(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;padding:13px;">Cancelar</button>
+      <button onclick="updateStock('${p.barcode}',G('new-stock-qty').value)" class="btn-primary" style="flex:2;padding:13px;font-size:15px;">✓ Guardar</button>
+    </div>
+  </div></div>`;
+}
+
+function htmlAddModal(){
+  const d=D();const p=S.newP;
+  const cost=parseFloat(p.cost)||0,price=parseFloat(p.price)||0;
+  const margin=cost>0&&price>0?fmt(price-cost)+` (${(((price-cost)/cost)*100).toFixed(0)}%)`:'';
+  return`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.88);z-index:500;display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:${S.dark?'#111':d.bg};border:1px solid ${d.brd};border-radius:20px;padding:26px;width:100%;max-width:520px;max-height:92vh;overflow-y:auto;">
+    <div style="font-weight:900;font-size:18px;color:${d.fg};margin-bottom:4px;">Agregar producto</div>
+    <div style="color:${d.sub};font-size:13px;margin-bottom:20px;">Si el código ya existe, se actualizarán las existencias automáticamente</div>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <input id="np-bc" value="${p.barcode}" oninput="S.newP.barcode=this.value"
+        placeholder="Código de barras *" style="${IS()}flex:1;font-family:'DM Mono',monospace;"/>
+      <button onclick="S.scanForAdd=true;render()" style="${BS(S.dark?'#1a3a2a':'#e0f5ed')};padding:11px 14px;font-size:22px;color:#00e5a0;">📷</button>
+    </div>
+    <input id="np-nm" value="${p.name}" oninput="S.newP.name=this.value"
+      placeholder="Nombre completo del producto *" style="${IS()}margin-bottom:12px;"/>
+    <input id="np-ct" value="${p.cat}" oninput="S.newP.cat=this.value"
+      placeholder="Categoría (ej. Refrescos)" style="${IS()}margin-bottom:12px;"/>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;">
+      ${[['cost','💰 Precio de compra'],['price','🏷️ Precio de venta'],['stock','📦 Existencia inicial'],['min','⚠️ Stock mínimo']].map(([f,ph])=>`
+      <div>
+        <div style="color:${d.sub};font-size:11px;margin-bottom:5px;">${ph}</div>
+        <input type="number" id="np-${f}" value="${p[f]}" oninput="S.newP.${f}=this.value;UNP()"
+          placeholder="0" style="${IS()}"/>
+      </div>`).join('')}
+    </div>
+    ${margin?`<div style="background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);border-radius:10px;padding:10px 14px;margin-bottom:14px;font-size:14px;">Ganancia por pieza: <b style="color:#00e5a0;">${margin}</b></div>`:''}
+    <div style="display:flex;gap:10px;">
+      <button onclick="S.addModal=false;render()" style="${BS(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;padding:13px;">Cancelar</button>
+      <button onclick="SNP()" class="btn-primary" style="flex:2;padding:13px;font-size:15px;">Guardar producto</button>
+    </div>
+  </div></div>`;
+}
+
+function htmlProdDetail(){
+  const d=D();
+  const barcode=S.prodDetailModal;
+  const p=S.prods.find(p=>p.barcode===barcode);
+  if(!p)return'';
+  const totalSold=S.sales.flatMap(s=>s.items).filter(i=>i.barcode===p.barcode&&!S.sales.find(s=>s.cancelled&&s.items.find(i2=>i2.barcode===p.barcode))).reduce((s,i)=>s+i.qty,0);
+  return`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:600;display:flex;align-items:center;justify-content:center;padding:16px;">
+  <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(0,229,160,0.3);border-radius:22px;padding:26px;width:100%;max-width:420px;max-height:92vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:20px;">
+      <div>
+        <div style="font-weight:900;font-size:18px;color:${d.fg};">${p.name}</div>
+        <div style="font-family:'DM Mono',monospace;font-size:11px;color:${d.sub};margin-top:3px;">${p.barcode}</div>
+      </div>
+      <button onclick="S.prodDetailModal=null;render()" style="background:none;border:none;color:${d.sub};cursor:pointer;font-size:22px;line-height:1;padding:0 4px;">×</button>
+    </div>
+    <!-- Info completa del producto -->
+    <div style="display:grid;gap:10px;margin-bottom:20px;">
+      ${[
+        ['Categoría',p.cat,'#fff'],
+        ['Precio de compra (costo)',fmt(p.cost),d.fg],
+        ['Precio de venta al público',fmt(p.price),'#00e5a0'],
+        ['Ganancia por pieza',fmt(p.price-p.cost)+' ('+(((p.price-p.cost)/p.cost)*100).toFixed(0)+'%)','#00b4d8'],
+        ['Existencia actual',p.stock+' piezas',p.stock===0?'#ff4444':p.stock<=p.min?'#ff8844':'#00e5a0'],
+        ['Stock mínimo (alerta)',p.min+' piezas','#ffa500'],
+        ['Total vendido históricamente',totalSold+' piezas',d.fg],
+      ].map(([l,v,c])=>`
+      <div style="display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:${S.dark?'rgba(255,255,255,0.03)':'#f8f8f8'};border-radius:10px;">
+        <span style="color:${d.sub};font-size:13px;">${l}</span>
+        <span style="font-weight:700;color:${c};font-size:14px;">${v}</span>
+      </div>`).join('')}
+    </div>
+    <!-- Estado de alerta -->
+    ${p.stock<=p.min?`<div style="background:rgba(255,68,68,0.08);border:1px solid rgba(255,68,68,0.3);border-radius:10px;padding:12px 14px;margin-bottom:16px;">
+      <div style="color:#ff4444;font-weight:700;font-size:13px;">🔴 Stock bajo — necesitas surtir</div>
+      <div style="color:${d.sub};font-size:12px;margin-top:4px;">Tienes ${p.stock} pzas, el mínimo configurado es ${p.min} pzas</div>
+    </div>`:''}
+    <div style="display:flex;gap:10px;">
+      <button onclick="S.prodDetailModal=null;render()" style="${BS(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;padding:13px;">Cerrar</button>
+      <button onclick="S.updateStockModal='${p.barcode}';S.prodDetailModal=null;render()" class="btn-primary" style="flex:2;padding:13px;">📦 Actualizar existencia</button>
+    </div>
+  </div></div>`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REPORTES
+// ═══════════════════════════════════════════════════════════════
+function htmlRep(){
+  const d=D();
+  // Caja 1 ve todo; otras cajas solo verían las suyas (pero solo Caja 1 llega aquí)
+  const allFilt=filterPeriod(S.sales,S.period);
+  const cajaFilt=S.cajaFilter==='all'?allFilt:allFilt.filter(s=>s.cashierName===S.cajaFilter);
+  const active=cajaFilt.filter(s=>!s.cancelled);
+  const rev=active.reduce((s,v)=>s+v.total,0),prf=active.reduce((s,v)=>s+v.profit,0);
+  const byM={cash:0,card:0,transfer:0};active.forEach(s=>{byM[s.payMethod]=(byM[s.payMethod]||0)+s.total;});
+  const byCaja={};allFilt.filter(s=>!s.cancelled).forEach(s=>{const n=s.cashierName||'Caja 1';if(!byCaja[n])byCaja[n]={rev:0,profit:0,count:0};byCaja[n].rev+=s.total;byCaja[n].profit+=s.profit;byCaja[n].count++;});
+  const last7=[...Array(7)].map((_,i)=>{const dt=new Date();dt.setDate(dt.getDate()-i);const ds=dt.toISOString().split('T')[0];const day=S.sales.filter(s=>s.date===ds&&!s.cancelled&&(S.cajaFilter==='all'||s.cashierName===S.cajaFilter));return{label:i===0?'Hoy':dt.toLocaleDateString('es-MX',{weekday:'short'}),rev:day.reduce((s,v)=>s+v.total,0),profit:day.reduce((s,v)=>s+v.profit,0)};}).reverse();
+  const maxR=Math.max(...last7.map(x=>x.rev),1);
+  const top5=S.prods.map(p=>({...p,sold:active.flatMap(s=>s.items).filter(i=>i.barcode===p.barcode).reduce((s,i)=>s+i.qty,0)})).sort((a,b)=>b.sold-a.sold).slice(0,5);
+  const now=new Date();
+  const PL={day:'Hoy',week:'Esta semana',month:'Este mes',year:'Este año'};
+  const PS={day:now.toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'}),week:`Sem. ${new Date(new Date().setDate(now.getDate()-now.getDay())).toLocaleDateString('es-MX',{day:'numeric',month:'short'})}`,month:new Date().toLocaleDateString('es-MX',{month:'long',year:'numeric'}),year:new Date().getFullYear().toString()}[S.period];
+  const cajaLabel=S.cajaFilter==='all'?'General':S.cajaFilter;
+  return`
+  <div style="${crd()}padding:12px 14px;">
+    <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="flex:1;min-width:160px;">
+        <div style="color:${d.sub};font-size:11px;margin-bottom:6px;font-weight:600;">PERIODO</div>
+        <div style="display:flex;gap:5px;">
+          ${[['day','Hoy'],['week','Sem'],['month','Mes'],['year','Año']].map(([id,lbl])=>`<button onclick="S.period='${id}';render()" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid ${S.period===id?'#00e5a0':d.brd};background:${S.period===id?(S.dark?'rgba(0,229,160,0.1)':'rgba(0,180,130,0.07)'):'transparent'};color:${S.period===id?'#00e5a0':d.sub};cursor:pointer;font-size:12px;font-weight:${S.period===id?700:400};font-family:'DM Sans',sans-serif;">${lbl}</button>`).join('')}
+        </div>
+      </div>
+      <div style="flex:1;min-width:160px;">
+        <div style="color:${d.sub};font-size:11px;margin-bottom:6px;font-weight:600;">CAJA</div>
+        <div style="display:flex;gap:5px;">
+          ${['all','Caja 1','Caja 2','Caja 3'].map(c=>`<button onclick="S.cajaFilter='${c}';render()" style="flex:1;padding:8px 4px;border-radius:8px;border:2px solid ${S.cajaFilter===c?'#00b4d8':d.brd};background:${S.cajaFilter===c?(S.dark?'rgba(0,180,216,0.1)':'rgba(0,130,200,0.07)'):'transparent'};color:${S.cajaFilter===c?'#00b4d8':d.sub};cursor:pointer;font-size:11px;font-weight:${S.cajaFilter===c?700:400};font-family:'DM Sans',sans-serif;">${c==='all'?'Todas':c.replace('Caja ','C')}</button>`).join('')}
+        </div>
+      </div>
+    </div>
+  </div>
+  <button onclick="printReport(filterPeriod(S.sales,S.period).filter(s=>S.cajaFilter==='all'||s.cashierName===S.cajaFilter),'${PL[S.period]}','${PS}','${cajaLabel==='General'?'':cajaLabel}')"
+    style="${BS(S.dark?'#1a3a2a':'#e0f5ed','#00e5a0')};width:100%;margin-bottom:12px;display:flex;align-items:center;justify-content:center;gap:8px;border:1px solid rgba(0,229,160,0.3);font-size:14px;">📥 Descargar PDF — ${PL[S.period]} · ${cajaLabel}</button>
+  <div style="${crd()}background:${S.dark?'linear-gradient(135deg,rgba(0,229,160,0.07),rgba(0,180,216,0.07))':'linear-gradient(135deg,rgba(0,229,160,0.04),rgba(0,180,216,0.04))'};border:1px solid rgba(0,229,160,0.18);">
+    <div style="color:${d.sub};font-size:12px;margin-bottom:10px;font-weight:600;">📊 ${PL[S.period]} · ${cajaLabel} — ${PS}</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;">
+      ${[['Ventas',active.length,d.fg],['Ingresos',fmt(rev),'#00b4d8'],['Ganancia',fmt(prf),'#00e5a0'],['Canceladas',cajaFilt.filter(s=>s.cancelled).length,'#ff6b6b']].map(([l,v,c])=>`
+      <div style="text-align:center;padding:8px;background:${S.dark?'rgba(0,0,0,0.2)':'rgba(255,255,255,0.6)'};border-radius:10px;">
+        <div style="color:${c};font-size:20px;font-weight:900;line-height:1;">${v}</div>
+        <div style="color:${d.sub};font-size:10px;margin-top:4px;">${l}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:700;margin-bottom:12px;">💳 Por forma de pago</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;">
+      ${PAYMENTS.map(m=>`<div style="text-align:center;padding:12px 8px;border-radius:12px;background:${S.dark?'rgba(255,255,255,0.03)':'rgba(0,0,0,0.02)'};border:1px solid ${d.brd};">
+        <div style="font-size:22px;margin-bottom:4px;">${m.icon}</div>
+        <div style="color:#00e5a0;font-weight:900;font-size:15px;">${fmt(byM[m.id]||0)}</div>
+        <div style="color:${d.sub};font-size:10px;margin-top:2px;">${m.label}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:700;margin-bottom:12px;">🏪 Desglose por caja</div>
+    ${Object.keys(byCaja).length===0?`<div style="color:${d.sub};font-size:13px;">Sin ventas en este periodo</div>`:
+    Object.entries(byCaja).map(([name,data],i,arr)=>`
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr 1fr;gap:8px;margin-bottom:8px;padding-bottom:8px;border-bottom:${i<arr.length-1?`1px solid ${d.brd}`:'none'};">
+      <div style="font-weight:700;color:${d.fg};font-size:13px;align-self:center;">${name}</div>
+      <div style="text-align:center;"><div style="font-size:14px;font-weight:700;color:${d.fg};">${data.count}</div><div style="font-size:10px;color:${d.sub};">ventas</div></div>
+      <div style="text-align:center;"><div style="font-size:14px;font-weight:700;color:#00b4d8;">${fmt(data.rev)}</div><div style="font-size:10px;color:${d.sub};">ingresos</div></div>
+      <div style="text-align:center;"><div style="font-size:14px;font-weight:700;color:#00e5a0;">${fmt(data.profit)}</div><div style="font-size:10px;color:${d.sub};">ganancia</div></div>
+    </div>`).join('')}
+  </div>
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:700;margin-bottom:12px;">📈 Últimos 7 días</div>
+    <div style="display:flex;align-items:flex-end;gap:6px;height:120px;">
+      ${last7.map(day=>`<div style="flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;">
+        ${day.rev>0?`<div style="font-size:8px;color:#00e5a0;font-weight:700;">${fmt(day.profit)}</div>`:''}
+        <div style="width:100%;display:flex;flex-direction:column;gap:2px;align-items:center;">
+          <div style="width:75%;background:rgba(0,229,160,0.75);border-radius:4px 4px 0 0;min-height:${day.profit>0?3:0}px;height:${(day.profit/maxR)*90}px;"></div>
+          <div style="width:75%;background:rgba(0,180,216,0.28);border-radius:0 0 4px 4px;min-height:${day.rev>0?3:0}px;height:${(day.rev/maxR)*90}px;"></div>
+        </div>
+        <div style="font-size:9px;color:${d.sub};text-align:center;">${day.label}</div>
+      </div>`).join('')}
+    </div>
+  </div>
+  <div style="${crd()}">
+    <div style="color:${d.sub};font-size:12px;font-weight:700;margin-bottom:12px;">🏆 Top 5 más vendidos</div>
+    ${top5.filter(p=>p.sold>0).length===0?`<div style="color:${d.sub};font-size:13px;">Sin ventas</div>`:
+    top5.filter(p=>p.sold>0).map((p,i)=>`<div style="display:flex;align-items:center;gap:12px;margin-bottom:10px;padding-bottom:10px;border-bottom:${i<4?`1px solid ${d.brd}`:'none'};">
+      <div style="width:30px;height:30px;background:${i===0?'#ffd700':i===1?'#c0c0c0':i===2?'#cd7f32':S.dark?'#1e1e30':'#eee'};border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:${i<3?'#000':D().sub};">${i+1}</div>
+      <div style="flex:1;"><div style="font-size:14px;font-weight:600;color:${D().fg};">${p.name}</div><div style="font-size:12px;color:${D().sub};">${p.sold} piezas</div></div>
+    </div>`).join('')}
+  </div>
+  ${lowStock().length>0?`<div style="${crd()}background:rgba(255,68,68,0.05);border:1px solid rgba(255,68,68,0.2);">
+    <div style="color:#ff4444;font-weight:700;margin-bottom:10px;font-size:13px;">🔴 Stock bajo — revisar y surtir</div>
+    ${lowStock().map(p=>`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:5px;color:${D().sub};"><span>${p.name}</span><span style="color:${p.stock===0?'#ff4444':'#ff8844'};font-weight:600;">${p.stock===0?'AGOTADO':`${p.stock} pzas`}</span></div>`).join('')}
+  </div>`:''}`;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODALES GLOBALES
+// ═══════════════════════════════════════════════════════════════
+function htmlModals(){
+  const d=D();let h='';
+
+  // Escáner para agregar producto (desde inventario)
+  if(S.scanForAdd){
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;">
+    <div style="color:#00e5a0;font-size:14px;text-align:center;font-weight:600;">📷 Escanea el código del nuevo producto</div>
+    <div style="position:relative;width:300px;height:220px;border-radius:16px;overflow:hidden;border:2px solid #00e5a0;">
+      <video id="sv" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+      <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,229,160,0.9);animation:scan 2s ease-in-out infinite;"></div>
+    </div>
+    <div style="display:flex;gap:8px;width:100%;max-width:360px;">
+      <input id="sm" placeholder="O escribe el código aquí" autofocus
+        onkeydown="if(event.key==='Enter'&&this.value.trim())SD(this.value.trim());"
+        style="${IS()}flex:1;font-family:'DM Mono',monospace;font-size:16px;"/>
+      <button onclick="SD(G('sm').value.trim())" class="btn-primary" style="padding:11px 20px;">OK</button>
+    </div>
+    <button onclick="stopScanner();S.scanForAdd=false;render()" style="padding:9px 28px;background:transparent;color:#666;border:1px solid #333;border-radius:8px;cursor:pointer;font-size:13px;">Cancelar</button>
+    </div>`;
+    setTimeout(()=>startScanner(SD),100);
+  }
+
+  // Escáner para vender
+  if(S.scanner){
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.96);z-index:3000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:20px;">
+    <div style="color:#00e5a0;font-size:14px;text-align:center;font-weight:600;">📷 Apunta al código de barras</div>
+    <div style="position:relative;width:300px;height:220px;border-radius:16px;overflow:hidden;border:2px solid #00e5a0;">
+      <video id="sv" autoplay playsinline muted style="width:100%;height:100%;object-fit:cover;"></video>
+      <div style="position:absolute;top:50%;left:0;right:0;height:2px;background:rgba(0,229,160,0.9);animation:scan 2s ease-in-out infinite;"></div>
+    </div>
+    <div style="display:flex;gap:8px;width:100%;max-width:360px;">
+      <input id="sm" placeholder="O escribe el código aquí" autofocus
+        onkeydown="if(event.key==='Enter'&&this.value.trim())SD(this.value.trim());"
+        style="${IS()}flex:1;font-family:'DM Mono',monospace;font-size:16px;"/>
+      <button onclick="SD(G('sm').value.trim())" class="btn-primary" style="padding:11px 20px;">OK</button>
+    </div>
+    <button onclick="stopScanner();S.scanner=false;render()" style="padding:9px 28px;background:transparent;color:#666;border:1px solid #333;border-radius:8px;cursor:pointer;font-size:13px;">Cancelar</button>
+    </div>`;
+    setTimeout(()=>startScanner(SD),100);
+  }
+
+  // Recibo
+  if(S.receipt){const r=S.receipt;const pm=PAYMENTS.find(m=>m.id===r.payMethod);
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1000;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(0,229,160,0.3);border-radius:22px;padding:26px;width:100%;max-width:380px;max-height:92vh;overflow-y:auto;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:48px;margin-bottom:8px;">✅</div>
+        <div style="color:#00e5a0;font-weight:900;font-size:20px;">¡Venta completada!</div>
+        <div style="color:${d.sub};font-size:11px;margin-top:3px;">${CFG.storeName} · ${S.cashier}</div>
+      </div>
+      <div style="border-top:1px dashed ${d.brd};border-bottom:1px dashed ${d.brd};padding:12px 0;margin:12px 0;">
+        ${r.items.map(it=>`<div style="display:flex;justify-content:space-between;font-size:14px;margin-bottom:4px;">
+          <span style="color:${d.sub};">${it.name} ×${it.qty}</span>
+          <span style="color:${d.fg};">${fmt(it.price*it.qty)}</span>
+        </div>`).join('')}
+      </div>
+      <div style="display:flex;flex-direction:column;gap:6px;">
+        <div style="display:flex;justify-content:space-between;font-weight:900;font-size:20px;color:${d.fg};"><span>Total</span><span style="color:#00e5a0;">${fmt(r.total)}</span></div>
+        <div style="display:flex;justify-content:space-between;font-size:14px;"><span style="color:${d.sub};">Pago</span><span>${pm?.icon} ${pm?.label}</span></div>
+        ${r.payMethod==='cash'?`<div style="display:flex;justify-content:space-between;font-size:14px;"><span style="color:${d.sub};">Pagó</span><span>${fmt(r.paid)}</span></div>
+        ${r.change>0?`<div style="display:flex;justify-content:space-between;font-size:14px;"><span style="color:${d.sub};">Cambio</span><span style="color:#ffa500;font-weight:700;">${fmt(r.change)}</span></div>`:''}`:''} 
+        <div style="background:rgba(0,229,160,0.08);border-radius:10px;padding:10px 14px;margin-top:4px;">
+          <div style="display:flex;justify-content:space-between;font-size:14px;">
+            <span style="color:${d.sub};">Tu ganancia</span>
+            <span style="color:#00e5a0;font-weight:900;font-size:16px;">+${fmt(r.profit)}</span>
+          </div>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:18px;">
+        <button onclick="printTicket(S.receipt)" style="${BS(S.dark?'#1a1a30':'#f0f2ff',S.dark?'#aaa':'#555')};padding:11px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;">🖨️ Imprimir</button>
+        <button onclick="S.whatsModal=S.receipt;render()" style="${BS('#25D366','#fff')};padding:11px;font-size:13px;display:flex;align-items:center;justify-content:center;gap:5px;">📲 WhatsApp</button>
+      </div>
+      <button onclick="S.receipt=null;render()" class="btn-primary" style="width:100%;padding:14px;font-size:16px;margin-top:8px;">+ Nueva venta</button>
+    </div></div>`;
+  }
+
+  // WhatsApp
+  if(S.whatsModal){
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1100;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(37,211,102,0.35);border-radius:22px;padding:26px;width:100%;max-width:360px;">
+      <div style="font-size:40px;text-align:center;margin-bottom:10px;">📲</div>
+      <div style="font-weight:900;font-size:18px;color:${d.fg};text-align:center;margin-bottom:4px;">Enviar ticket por WhatsApp</div>
+      <div style="color:${d.sub};font-size:12px;text-align:center;margin-bottom:16px;">El número <b style="color:#ff6b6b;">no queda guardado</b>. El ticket se verá como un ticket real.</div>
+      <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Número del cliente (10 dígitos)</div>
+      <input id="wn" type="tel" maxlength="10" value="${S.whatsNum}"
+        oninput="S.whatsNum=this.value.replace(/\\D/g,'').slice(0,10);this.value=S.whatsNum;"
+        placeholder="5512345678"
+        style="${IS()}font-family:'DM Mono',monospace;font-size:20px;letter-spacing:3px;text-align:center;margin-bottom:6px;"
+        onkeydown="if(event.key==='Enter'&&S.whatsNum.length===10)sendWA(S.whatsModal,S.whatsNum)"/>
+      <div style="color:${d.sub};font-size:11px;text-align:center;margin-bottom:16px;">Se agrega +52 automáticamente</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="S.whatsModal=null;S.whatsNum='';S.receipt=null;render()" style="${BS(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;padding:13px;">Omitir</button>
+        <button onclick="if(S.whatsNum.length===10)sendWA(S.whatsModal,S.whatsNum);else notify('Ingresa 10 dígitos','err');"
+          style="${BS('#25D366','#fff')};flex:2;display:flex;align-items:center;justify-content:center;gap:8px;padding:13px;">📲 Enviar ticket</button>
+      </div>
+    </div></div>`;
+  }
+
+  // Cancelar venta
+  if(S.cancelModal){const s=S.cancelModal;
+    h+=`<div style="position:fixed;inset:0;background:rgba(0,0,0,0.92);z-index:1200;display:flex;align-items:center;justify-content:center;padding:16px;">
+    <div style="background:${S.dark?'#111':d.bg};border:1px solid rgba(255,107,107,0.45);border-radius:22px;padding:26px;width:100%;max-width:400px;">
+      <div style="text-align:center;margin-bottom:22px;">
+        <div style="font-size:50px;margin-bottom:10px;">⛔</div>
+        <div style="color:#ff6b6b;font-weight:900;font-size:20px;">Cancelar venta</div>
+        <div style="color:${d.sub};font-size:13px;margin-top:4px;">Solo puedes cancelar tus propias ventas</div>
+      </div>
+      <div style="background:${S.dark?'rgba(255,255,255,0.03)':'#f8f8f8'};border:1px solid ${d.brd};border-radius:12px;padding:14px;margin-bottom:18px;">
+        ${s.items.map(it=>`<div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:3px;color:${d.fg};"><span>${it.name} ×${it.qty}</span><span>${fmt(it.price*it.qty)}</span></div>`).join('')}
+        <div style="border-top:1px solid ${d.brd};margin-top:8px;padding-top:8px;display:flex;justify-content:space-between;font-weight:700;"><span style="color:${d.fg};">Total</span><span style="color:#ff6b6b;font-size:16px;">${fmt(s.total)}</span></div>
+      </div>
+      <div style="margin-bottom:14px;">
+        <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">Motivo *</div>
+        <select id="cr" style="${IS()}">
+          <option value="">Selecciona un motivo...</option>
+          <option>Cliente desistió de la compra</option>
+          <option>Pago con tarjeta rechazado</option>
+          <option>Producto no disponible</option>
+          <option>Error en el cobro</option>
+          <option>Otro</option>
+        </select>
+      </div>
+      <div style="margin-bottom:16px;">
+        <div style="color:${d.sub};font-size:12px;margin-bottom:6px;">🔑 Contraseña del negocio *</div>
+        ${passInput('cp','cancel','Ingresa la contraseña para autorizar','CC()')}
+        <div id="ce" style="display:none;color:#ff6b6b;font-size:12px;margin-top:6px;"></div>
+      </div>
+      <div style="background:rgba(255,107,107,0.07);border:1px solid rgba(255,107,107,0.2);border-radius:10px;padding:10px 14px;margin-bottom:16px;font-size:13px;color:${S.dark?'#ff9999':'#cc4444'};">⚠️ El inventario se restaurará automáticamente.</div>
+      <div style="display:flex;gap:10px;">
+        <button onclick="S.cancelModal=null;render()" style="${BS(S.dark?'#1e1e3a':'#f0f0f8',d.sub)};flex:1;padding:13px;">Volver</button>
+        <button onclick="CC()" style="${BS('#ff6b6b','#fff')};flex:2;padding:13px;font-size:15px;">⛔ Confirmar</button>
+      </div>
+    </div></div>`;
+  }
+
+  // Notificación
+  if(S.notif)h+=`<div style="position:fixed;top:70px;left:50%;transform:translateX(-50%);background:${S.notif.type==='err'?'#ff6b6b':'#00e5a0'};color:#000;padding:10px 22px;border-radius:12px;font-weight:700;font-size:14px;z-index:9999;white-space:nowrap;box-shadow:0 6px 24px rgba(0,0,0,0.5);animation:fadeUp .2s ease;">${S.notif.msg}</div>`;
+
+  return h;
+}
+
+// ═══════════════════════════════════════════════════════════════
+// RENDER PRINCIPAL
+// ═══════════════════════════════════════════════════════════════
+function render(){
+  const d=D();const root=G('root');
+  document.body.style.background=d.bg;
+  if(S.screen==='login'){root.innerHTML=rLogin()+htmlModals();return;}
+  if(S.screen==='blocked'){root.innerHTML=rBlocked();return;}
+  if(!isCaja1()&&S.tab!=='sell')S.tab='sell';
+  const content=S.tab==='sell'?htmlSell():S.tab==='inv'?htmlInv():htmlRep();
+  const ls=lowStock();
+
+  const sidebar=`
+  <div class="pc-sidebar" style="background:${d.sb};border-right:1px solid ${d.brd};">
+    <div style="padding:20px 20px 16px;">
+      <div style="width:48px;height:48px;background:linear-gradient(135deg,#00e5a0,#00b4d8);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:24px;margin-bottom:12px;">🏪</div>
+      <div style="font-weight:900;font-size:14px;color:${d.fg};line-height:1.2;">${CFG.storeName}</div>
+      <div style="font-size:11px;color:${d.sub};margin-top:3px;">${S.cashier}</div>
+    </div>
+    <div style="padding:0 12px;flex:1;">
+      <button onclick="ST('sell')" style="width:100%;padding:12px 14px;border:none;border-radius:10px;background:${S.tab==='sell'?(S.dark?'rgba(0,229,160,0.12)':'rgba(0,180,130,0.1)'):'transparent'};color:${S.tab==='sell'?'#00e5a0':d.sub};cursor:pointer;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:${S.tab==='sell'?700:500};margin-bottom:4px;font-family:'DM Sans',sans-serif;text-align:left;"><span style="font-size:20px;">🏪</span>Vender</button>
+      ${isCaja1()?`
+      <button onclick="ST('inv')" style="width:100%;padding:12px 14px;border:none;border-radius:10px;background:${S.tab==='inv'?(S.dark?'rgba(0,229,160,0.12)':'rgba(0,180,130,0.1)'):'transparent'};color:${S.tab==='inv'?'#00e5a0':d.sub};cursor:pointer;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:${S.tab==='inv'?700:500};margin-bottom:4px;font-family:'DM Sans',sans-serif;text-align:left;"><span style="font-size:20px;">📦</span>Inventario</button>
+      <button onclick="ST('rep')" style="width:100%;padding:12px 14px;border:none;border-radius:10px;background:${S.tab==='rep'?(S.dark?'rgba(0,229,160,0.12)':'rgba(0,180,130,0.1)'):'transparent'};color:${S.tab==='rep'?'#00e5a0':d.sub};cursor:pointer;display:flex;align-items:center;gap:10px;font-size:14px;font-weight:${S.tab==='rep'?700:500};margin-bottom:4px;font-family:'DM Sans',sans-serif;text-align:left;"><span style="font-size:20px;">📊</span>Reportes</button>`:''}
+    </div>
+    <div style="padding:16px 20px;border-top:1px solid ${d.brd};">
+      ${ls.length>0?`<div style="background:rgba(255,68,68,0.1);border:1px solid rgba(255,68,68,0.25);border-radius:8px;padding:8px 12px;margin-bottom:10px;cursor:pointer;" onclick="ST('inv')"><div style="color:#ff4444;font-size:12px;font-weight:700;">🔴 ${ls.length} stock bajo</div></div>`:''}
+      <div style="margin-bottom:10px;"><div style="color:#00e5a0;font-weight:900;font-size:18px;">${fmt(todayPrf())}</div><div style="font-size:10px;color:${d.sub};">ganancia hoy</div></div>
+      <div style="display:flex;gap:6px;">
+        <button onclick="S.dark=!S.dark;render()" style="flex:1;padding:8px;background:${S.dark?'rgba(255,255,255,0.06)':'rgba(0,0,0,0.05)'};border:1px solid ${d.brd};color:${d.fg};border-radius:8px;cursor:pointer;font-size:15px;">${S.dark?'☀️':'🌙'}</button>
+        <button onclick="doLogout()" style="flex:2;padding:8px;background:transparent;border:1px solid ${d.brd};color:${d.sub};border-radius:8px;cursor:pointer;font-size:12px;font-family:'DM Sans',sans-serif;">Salir</button>
+      </div>
+    </div>
+  </div>`;
+
+  const mobHeader=`<div class="mob-header" style="background:${d.hdr};border-bottom:1px solid ${d.brd};">
+    <div><div style="font-weight:900;font-size:14px;">${CFG.storeName}</div><div style="font-size:10px;color:${d.sub};">${S.cashier}</div></div>
+    <div style="display:flex;align-items:center;gap:8px;">
+      ${ls.length>0?`<div style="background:#ff4444;color:#fff;font-size:10px;font-weight:800;padding:2px 7px;border-radius:20px;cursor:pointer;" onclick="ST('inv')">🔴${ls.length}</div>`:''}
+      <div style="text-align:right;margin-right:2px;"><div style="color:#00e5a0;font-weight:800;font-size:13px;">${fmt(todayPrf())}</div><div style="font-size:9px;color:${d.sub};">ganancia hoy</div></div>
+      <button onclick="S.dark=!S.dark;render()" style="background:${S.dark?'rgba(255,255,255,0.07)':'rgba(0,0,0,0.07)'};border:1px solid ${d.brd};color:${d.fg};border-radius:8px;padding:5px 9px;cursor:pointer;font-size:16px;">${S.dark?'☀️':'🌙'}</button>
+      <button onclick="doLogout()" style="background:${S.dark?'rgba(255,255,255,0.04)':'rgba(0,0,0,0.04)'};border:1px solid ${d.brd};color:${d.sub};border-radius:8px;padding:5px 9px;cursor:pointer;font-size:12px;">Salir</button>
+    </div>
+  </div>`;
+
+  const mobNav=`<div class="mob-nav" style="background:${d.nav};border-top:1px solid ${d.brd};">
+    <button onclick="ST('sell')" style="flex:1;padding:11px 4px;background:none;border:none;color:${S.tab==='sell'?'#00e5a0':d.sub};font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:${S.tab==='sell'?700:400};border-top:${S.tab==='sell'?'2px solid #00e5a0':'2px solid transparent'};font-family:'DM Sans',sans-serif;"><span style="font-size:22px;">🏪</span>Vender</button>
+    ${isCaja1()?`
+    <button onclick="ST('inv')" style="flex:1;padding:11px 4px;background:none;border:none;color:${S.tab==='inv'?'#00e5a0':d.sub};font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:${S.tab==='inv'?700:400};border-top:${S.tab==='inv'?'2px solid #00e5a0':'2px solid transparent'};font-family:'DM Sans',sans-serif;"><span style="font-size:22px;">📦</span>Inventario</button>
+    <button onclick="ST('rep')" style="flex:1;padding:11px 4px;background:none;border:none;color:${S.tab==='rep'?'#00e5a0':d.sub};font-size:10px;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:${S.tab==='rep'?700:400};border-top:${S.tab==='rep'?'2px solid #00e5a0':'2px solid transparent'};font-family:'DM Sans',sans-serif;"><span style="font-size:22px;">📊</span>Reportes</button>`:''}
+  </div>`;
+
+  root.innerHTML=`
+  <div class="mob-wrap" style="background:${d.bg};color:${d.fg};">
+    ${mobHeader}
+    <div class="mob-content">${content}</div>
+    ${mobNav}
+  </div>
+  <div class="pc-wrap" style="background:${d.bg};color:${d.fg};">
+    ${sidebar}
+    <div class="pc-main">
+      <div class="pc-topbar" style="background:${d.hdr};border-bottom:1px solid ${d.brd};">
+        <div style="font-weight:700;font-size:18px;color:${d.fg};">${{sell:'🏪 Vender',inv:'📦 Inventario',rep:'📊 Reportes'}[S.tab]}</div>
+        <div style="font-size:12px;color:${d.sub};">${new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long'})}</div>
+      </div>
+      <div class="pc-content" style="max-width:900px;">${content}</div>
+    </div>
+  </div>
+  ${htmlModals()}`;
+
+  // Restaurar búsqueda activa
+  setTimeout(()=>{
+    const si=G('search-inp');if(si&&S.searchQ){si.value=S.searchQ;renderSearch();}
+    const ii=G('inv-search');if(ii)ii.value=S.invSearchQ||'';
+  },0);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// HANDLERS
+// ═══════════════════════════════════════════════════════════════
+window.ST=t=>{S.tab=t;S.searchQ='';S.invSearchQ='';render();};
+window.doLogout=doLogout;window.doLogin1=doLogin1;window.doLoginPin=doLoginPin;
+window.addByBarcode=addByBarcode;window.finalizeSale=finalizeSale;
+window.filterPeriod=filterPeriod;window.printReport=printReport;
+window.printTicket=printTicket;window.sendWA=sendWA;window.G=G;window.S=S;
+window.CQ=(b,delta)=>{const p=S.prods.find(p=>p.barcode===b);S.cart=S.cart.map(c=>{if(c.barcode!==b)return c;const nq=c.qty+delta;if(nq<1)return c;if(nq>p?.stock){notify('Sin suficiente existencia','err');return c;}return{...c,qty:nq};});render();};
+window.RC=b=>{S.cart=S.cart.filter(c=>c.barcode!==b);render();};
+window.UNP=()=>{
+  const cost=parseFloat(S.newP.cost)||0,price=parseFloat(S.newP.price)||0;
+  const el=G('np-margin');if(!el)return;
+  if(cost>0&&price>0){el.style.display='block';el.innerHTML=`Ganancia: <b style="color:#00e5a0;">${fmt(price-cost)} (${(((price-cost)/cost)*100).toFixed(0)}%)</b>`;}else el.style.display='none';
+};
+window.SNP=()=>{
+  const p=S.newP;
+  if(!p.barcode||!p.name){notify('Código y nombre requeridos','err');return;}
+  const existing=S.prods.find(pr=>pr.barcode===p.barcode);
+  if(existing){
+    // Producto ya existe → actualizar existencia sumando
+    const newStock=(existing.stock||0)+(parseInt(p.stock)||0);
+    S.prods=S.prods.map(pr=>pr.barcode===p.barcode?{...pr,stock:newStock}:pr);
+    setProds(S.prods);S.addModal=false;
+    notify(`✓ Existencia actualizada: ${existing.name} → ${newStock} pzas`);render();return;
+  }
+  S.prods=[...S.prods,{...p,cost:+p.cost,price:+p.price,stock:+p.stock,min:+p.min||5}];
+  setProds(S.prods);S.addModal=false;notify('✓ Producto agregado');render();
+};
+window.invScanDetect=invScanDetect;
+window.updateStock=updateStock;
+window.SD=code=>{stopScanner();if(S.scanForAdd){S.newP.barcode=code;S.scanForAdd=false;notify('✓ Código escaneado: '+code);}else{addByBarcode(code);S.scanner=false;}render();};
+window.CC=()=>{
+  const reason=G('cr')?.value,pass=G('cp')?.value,e=G('ce');
+  if(!reason){if(e){e.style.display='block';e.textContent='Selecciona un motivo.';}return;}
+  if(pass!==CFG.password){if(e){e.style.display='block';e.textContent='Contraseña incorrecta.';}return;}
+  cancelSale(S.cancelModal,reason);render();
+};
+window.renderSearch=renderSearch;
+window.renderChange=renderChange;
+
+// Teclado
+document.addEventListener('keydown',e=>{
+  if(S.screen!=='pos')return;
+  if(e.key==='Escape'){
+    if(S.scanner){stopScanner();S.scanner=false;render();return;}
+    if(S.scanForAdd){stopScanner();S.scanForAdd=false;render();return;}
+    if(S.invScannerOpen){stopScanner();S.invScannerOpen=false;render();return;}
+    if(S.receipt){S.receipt=null;render();return;}
+    if(S.whatsModal){S.whatsModal=null;S.whatsNum='';render();return;}
+    if(S.cancelModal){S.cancelModal=null;render();return;}
+    if(S.addModal){S.addModal=false;render();return;}
+    if(S.updateStockModal){S.updateStockModal=null;render();return;}
+    if(S.prodDetailModal){S.prodDetailModal=null;render();return;}
+  }
+  if(e.key==='F2'){e.preventDefault();ST('sell');}
+  if(e.key==='F3'&&isCaja1()){e.preventDefault();ST('inv');}
+  if(e.key==='F4'&&isCaja1()){e.preventDefault();ST('rep');}
+});
+
+// Init
+S.prods=getProds();S.sales=getSales();render();
+</script>
+</body>
+</html>
